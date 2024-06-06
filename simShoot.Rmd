@@ -1,0 +1,663 @@
+---
+title: "Estimating population size and reduction from removals"
+subtitle: "(with emphasis on wild deer and wild pigs)"
+link-citations: true
+author: "Peter Caley (peter.caley@csiro.au) with Andrew Bengsen and Dave Forysth"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+bibliography: references.bib
+citation_package: natbib    
+header-includes:
+    - \usepackage[round]{natbib}
+csl: wildlife-research.csl
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(echo = TRUE, 
+               fig.width = 10, 
+               fig.height = 5, 
+               out.width="100%", 
+               fig.align = "center", 
+               comment="")
+options(knitr.kable.NA = "", scipen = 22)
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(rjags)
+})
+TEST <- FALSE
+PLOT.IT <- TRUE
+```
+
+# Introduction
+
+Central to using culling/removal rate to estimate abundance is the underlying relationship between the rate of culling (predation) and population density/size --- the functional response. This is an example of an ``inverse problem'' in inference, where we seek to estimate the initial abundance/density on the basis of the rate of removal. 
+
+Some key points to note. 
+
+- If the functional response relationship is well known, then only a single shooting session covering a representative sample of the area of interest would be required to obtain an estimate of initial population size/density. Note there are a bunch of qualifiers to this. For example, if the density is above the level at at which shooting saturation occurs, then you will only have a minimum estimate of density.  
+- If the functional response relationship is not known, then it needs to be estimated, which requires that the proportion of the population removed during sessions is sufficient to generate a decline in the kill rate enabling calibration. If there is no detectable decline in the culling rate, then the estimated population under saturating forms of the functional response is infinite.
+- Finally, there is likely to be prior information available on the likely density of animals within the area of interest, along with the dominant vegetation type and what effect this may have on shape of the functional response relationship. Where such information is available and can be expressed quantitatively, Bayesian statistical methods are typically the best way of incorporation. 
+
+Examples of the application of predator-prey theory to the shooting of feral pigs from a helicopter include @Saunders&Bryant:1988, @Hone:1990PredPrey and @Choquenot.etal:1999. A more recent application to controlling wild deer (and a review of ungulates in general) is that of @Bengsen.etal:2023. These studies use a range of functions to describe the relationship between the number of animals shot per unit shooting effort and abundance/density. They are reviewed here.  
+
+## Functional response types
+
+### Ivlev 
+
+@Bengsen.etal:2023 used a modified form of the Ivlev function to model the kill rate ($c$) achieved by a helicopter shooting team as a function of deer density ($x$). The function takes the form: 
+
+$$
+ c = -b + a(1 - e^{-dx}).
+$$
+Note that the parameters $a$ and $b$ aren't interpretable exactly as stated by @Bengsen.etal:2023. In particular, the density below which animals are effectively unable to be shot is not $b$, but rather the x-intercept (where the curve crosses the x axis) that is controlled by $b$ interacting with $d$. In a similar vein, the maximum rate of removal is $c_{max}=a-b$ (not to simply $a$ as stated). It is possible, however, to calculate that values for $a$ and $b$ that give the desired value for the density of animals unable to be removed ($x_{min}$). Substituting $a = c_{max} + b$ into the Ivlev function with $c$ set to zero enables the required value of $b$ to be estimated as:
+
+$$
+ b = c_{max}(e^{d x_{min}}-1).
+$$
+That said, examining the Ivlev functional response models fitted to the aerial shooting data of deer in @Bengsen.etal:2023 doesn't indicate that a portion of the population is unable to be shot (see their Fig. 4). The requirement to have a functional response where a portion of the population is unable to be shot arose during aerial shooting of wild pigs where the habitat included areas of dense vegetation @Choquenot.etal:1999. Modifying the Ivlev function to be non-zero is essentially changing it to a Type-III (i.e. sigmoidal) functional response.   
+
+```{r, echo=FALSE, include=FALSE}
+# Function to estimate parameters a and b for a desired "refuge" density
+  ab.est <- function(c.max, x.crit, d) {
+    b.hat <- c.max*(exp(d*x.crit) - 1)
+    a.hat <- c.max + b.hat
+    c(a.hat, b.hat)  
+  }
+  ab.est(c.max=40, x.crit=2, d=0.5)
+```
+
+```{r, include=FALSE, echo=FALSE}
+# Ivlev Function
+Ivlev <- function(x, a=NULL, b=NULL, c.max=NULL, x.min=NULL, d, no.neg=TRUE) {
+  # Args:
+  # x -- prey density
+  #	x.min -- rate of offtake at zero population density, which helps determine
+  # The density below which no prey can be shot
+  #	c.max -- asymptotic maximum rate of kill at high prey density
+  #	d -- effect of declining prey density on shooting efficiency 
+  # no.neg -- do you want to plot negative vlues, or overwrite with zeros?
+  if(is.null(a) & is.null(b)) {
+    a <- ab.est(c.max, x.min, d)[1]
+    b <- ab.est(c.max, x.min, d)[2]
+  }  
+  # returns cull   
+  c <- -b + a*(1 - exp(-d*x))
+  if(no.neg) 
+      c[x < -log(1-b/a)/d] <- 0
+  return(c)
+} 
+
+if(TEST) {
+  Ivlev(x=2, a=108.73, b=68.73, d=0.5)
+  Ivlev(x=2, c.max=40, x.min=2, d=0.5)
+}
+```
+
+```{r, fig.cap="Example of Ivlev functional response (modified to only take positive values) with parameters chosen to achieve a maximum kill rate of 40 hr$^{-1}$ and a density of 2 below which culling becomes ineffective.", echo=!TRUE}
+if(PLOT.IT) {
+   a.hat <- ab.est(c.max=40, d=0.5, x.crit=2)[1]
+   b.hat <- ab.est(c.max=40, d=0.5, x.crit=2)[2]
+   pars <- list(a=a.hat, b=b.hat, d=0.5, x.vals=seq(0, 20, 0.1))
+   with(pars, {
+      Ivlev.pred <-Ivlev(x=x.vals, a=a, b=b, d=d, no.neg=TRUE) 
+      plot(x.vals, Ivlev.pred , type='l', lwd=2,
+      xlab="Prey density",  ylab="Kill rate",
+	    ylim=c(min(Ivlev.pred)-1, 40), axes=F)
+      axis(1, lwd=3, pos=-0.2)
+      axis(2, lwd=3, pos=-0.25, las=2)
+      abline(h=40, lty=2)
+      legend(10, 30, paste0("a=", round(a,1), ", b=", round(b,1), ", d=", d), lty=(1), lwd=2, title="Parameter settings")
+   })
+}
+```
+
+The Ivlev function is particularly suited to the analysis of numerical response (e.g. @Caughley:1987Relationships) where the rate of population increase ($r$) can take on negative values, and the parameters can be sensibly interpreted. For example, $b$ is the maximum rate of decrease in the absence of food, and $r=a-b$ is the maximum rate of increase when food isn't limiting. It is, however, probably less well suited as a functional response, where the predation rate can't be negative. 
+
+
+### Choquenot *et al* 1990
+
+@Choquenot.etal:1999 used what they termed a ``consonant'' model used by @Short:1987FoodIntake to describe variation in the kill rate (kills h$^{-1}$) of a shooting team consisting of a pilot and single shooter as a function of pig density (pigs km$^{-2}$) as:
+
+$$
+ \text{kill rate} = a (1 - e^{-d(x-b)}).
+$$
+
+Where:\
+$x=$ density of target/prey species (here wild pigs),\
+$a=$ the maximum offtake rate (realised at large $x$),\
+$b=$ density of target animals below which detection and killing in impossible, and\
+$d=$ parameter controlling the rate of encounter between the hunting process and the target animal [ToDo. Check by simulation]
+
+The parameterisation of this model as some advantages over the Ivlev one in terms of interpretability --- the maximum rate of shooting at saturation is specified directly by $a$ (rather than $a - b$), and the density at which animals cannot no longer be detected is exactly $b$ (c.f. being calculated numerically). This is an advantage when it comes to using prior knowledge within a Bayesian modelling framework, in that the specification of prior distributions is straightforward --- not a consideration when the paper was being written. 
+
+Note that the units of the kill rate could also be expressed as kills per area per unit time. 
+
+```{r, echo=FALSE}
+# Function used by Choquenot et al 1999
+Choquenot <- function(x=20, a=40, b=1, d=0.5) {
+# b -- population density below which no prey can (effectively) be shot
+# a -- asymptotic maximum rate of kill at high prey density
+# d -- effect of declining prey density on shooting efficiency 
+# x -- prey density   
+ 	kill.rate <- a*(1 - exp(-(x-b)*d))
+ 	# Adjust for "unshootable"  population
+ 	kill.rate[x<=b] <- 0
+	return(kill.rate)
+}
+```
+
+```{r, fig.cap="Example of functional response used by @Choquenot.etal:1999.", include=TRUE, echo=!TRUE}
+if(PLOT.IT) {
+  pars <- list(a=40, b=2, d=0.5, x.vals=seq(0, 20, 0.1))
+  with(pars, {
+	    plot(x.vals, Choquenot(x.vals,a,b,d), type='l', lwd=2, xlim=c(0, max(x.vals)), 
+	         xlab="Prey density", ylab="Kill rate", axes=F)
+      axis(1, lwd=3, pos=-0.2)
+      axis(2, lwd=3, pos=-0.25, las=2)
+      abline(h=40, lty=2)
+       legend(10, 30, paste0("a=", a, ", b=", b, ", d=", d), lty=(1), lwd=2, title="Parameter settings")
+  })
+}
+
+```
+
+The specification of a proportion of animals being unable to be preyed on is an approximation (e.g. where a proportion of animals learn to use and have access to refuges with zero visibility). It's inclusion by @Choquenot.etal:1999 presumably reflects the first-hand experience of the authors. For example, @Saunders&Bryant:1988 document pigs that were known (from radio-collaring data) to be present though never sighted during a helicopter shooting exercise due to hiding in tall reeds.  It assumes that removing animals becomes infinitely expensive (by shooting from a helicopter at least). 
+
+
+### Alternatives Type III functional responses
+
+It is somewhat strange that @Choquenot.etal:1999 didn't choose one of the standard functional responses relating predation rate to prey density. For example, following @Pech.etal:1992 a Type III response can be of the form:
+
+$$
+   c = \frac{\beta_0 x^2}{\beta_1^2 + x^2}
+$$
+
+
+```{r, echo=FALSE}
+# Holling Type III Functional response used by Pech et al 1992  
+
+TypeIII <- function(x, beta0, beta1, k=2) {
+# Args:
+#   beta0 -- Parameter reflecting shooting saturation c.max
+#   beta1 -- Parameter determining the rate at which c.max is approached
+#    k -- parameter
+  c <- beta0*x^k/(beta1^2+x^k)
+  return(c)
+}
+
+if(TEST) {
+  plot(seq(0,20,1), TypeIII(seq(0,20,1), beta0=40, beta1=10, k=2), type = 'l', ylim=c(0,40))
+  lines(seq(0,20,1), TypeIII(seq(0,20,1), beta0=40, beta1=2, k=2), lty=2)
+  lines(seq(0,20,1), TypeIII(seq(0,20,1), beta0=40, beta1=2, k=3), lty=2)
+  lines(seq(0,20,1), TypeIII(seq(0,20,1), beta0=40, beta1=10, k=3), lty=3)
+  lines(seq(0,20,1), TypeIII(seq(0,20,1), beta0=40, beta1=10, k=4), lty=4)
+}
+```
+
+Here the kill rate saturates at $\beta_0$. A limitation of this 2-parameter form of a Type III response is that it is difficult to have a pronounced sigmoidal shape that captures a significant density of prey that are unavailable, without a pronounced flattening of the curve (i.e. the shooting rate is slow to reach saturation). This can be addressed by allowing the exponent of $x$ to be free ($k$). Increasing $k$ shortens the time to reaching shooting saturation. Combinations of high values of both $k$ and $\beta_1$ can produce more pronounced sigmoidal shapes, similar to the 'generalised' Type III functional response (see below). 
+
+
+```{r, fig.cap="Example of Holling Type III functional response used by @Pech.etal:1992.", include=TRUE, echo=!TRUE}
+if(PLOT.IT) {
+  pars1 <- list(beta0=40, beta1=2, k=2, x.vals=seq(0, 20, 0.1))
+  pars2 <- list(beta0=40, beta1=2, k=3, x.vals=seq(0, 20, 0.1))
+  pars3 <- list(beta0=40, beta1=20, k=4, x.vals=seq(0, 20, 0.1))
+  with(pars1, {
+	     plot(x.vals, TypeIII(x.vals, beta0, beta1), type='l', lwd=2, xlim=c(0, max(x.vals)), xlab="Prey density", ylab="Kill rate", axes=F)
+      axis(1, lwd=3, pos=-0.2)
+      axis(2, lwd=3, pos=-0.25, las=2)
+      abline(h=40, lty=2)
+      legend(10, 30, paste0("beta0=", beta0, ", beta1=", beta1, ", k=", k), lty=c(1), lwd=2, title="Parameter settings", bty='n')
+  })
+  with(pars2, {
+	     lines(x.vals, TypeIII(x.vals, beta0, beta1, k), lty=2, lwd=2)
+       legend(10, 20, paste0("beta0=", beta0, ", beta1=", beta1, ", k=", k), lty=c(2), lwd=2, bty='n')
+  })
+  with(pars3, {
+	     lines(x.vals, TypeIII(x.vals, beta0, beta1, k), lty=3, lwd=2)
+       legend(10, 10, paste0("beta0=", beta0, ", beta1=", beta1, ", k=", k), lty=c(3), lwd=2, bty='n')
+  })
+}
+```
+A slightly more general, 3-parameter Type III functional response takes the form:
+
+$$
+  c = \frac{\beta_0 x^k}{1 + \beta_0 \beta_1 x^k}
+$$
+
+Where the kill rate saturates at $1/\beta_1$, and the additional parameter $k$ determines how quickly (in terms of increasing density) shooting saturation is reached. Higher rates of $k$ enable a more pronounced sigmoidal shape. Note that once prey density increases beyond the minimum (effectively $c_{max}$) the slope should not exceed one. That is, the kill rate shouldn't increase more quickly than the increase in prey density [Specifying statistical priors to achieve this may be a touch challenging ...]. 
+
+```{r, fig.cap="Example of generalised Type III functional response."}
+   TypeIIIGeneral <- function(x, beta0, beta1, k) {
+    # Args:
+    #   beta0 -- ToDo
+    #   beta1 -- Parameter determining saturation rate c.max = 1/beta1
+    #   k -- Parameter controlling rate at which saturation is approached
+     c <- beta0*x^k/(1 + beta0*beta1*x^k)
+     return(c)
+   }
+
+if(PLOT.IT) {
+  pars1 <- list(beta0=0.1, beta1=1/40, k=4, x.vals=seq(0, 20, 0.1))
+  pars2 <- list(beta0=0.1, beta1=1/40, k=5, x.vals=seq(0, 20, 0.1))
+  pars3 <- list(beta0=0.5, beta1=1/40, k=4, x.vals=seq(0, 20, 0.1))
+  pars4 <- list(beta0=1.0, beta1=1/40, k=4, x.vals=seq(0, 20, 0.1))
+  with(pars1, {
+	     plot(x.vals, TypeIIIGeneral(x.vals, beta0, beta1, k), type='l', lwd=2, xlim=c(0,max(x.vals)), xlab="Prey density", ylab="Kill rate", axes=F)
+      axis(1, lwd=3, pos=-0.2)
+      axis(2, lwd=3, pos=-0.25, las=2)
+      abline(h=40, lty=2)
+       #lines(x.vals, TypeIIIGeneral(x.vals, beta0=0.05, beta1=0.1, k=4), lty=2)
+       legend(10, 30, paste0("beta0=", beta0, ", beta1=", beta1, ", k=", k), lty=c(1), lwd=2, title="Parameter settings", bty='n')
+  })
+#  with(pars2, {
+#	     lines(x.vals, TypeIIIGeneral(x.vals, beta0, beta1, k), type='l', lwd=2, lty=2, xlim=c(0,max(x.vals)), xlab="Prey density", ylab="Kill rate")
+#       legend(10, 25, paste0("beta0=", beta0, ", beta1=", beta1, ", k=", k), lty=c(2), lwd=2, bty='n')
+#  })
+  with(pars3, {
+	     lines(x.vals, TypeIIIGeneral(x.vals, beta0, beta1, k), type='l', lwd=2, lty=3, xlim=c(0,max(x.vals)), xlab="Prey density", ylab="Kill rate")
+       legend(10, 20, paste0("beta0=", beta0, ", beta1=", beta1, ", k=", k), lty=c(3), lwd=2, bty='n')
+  })
+  with(pars4, {
+	     lines(x.vals, TypeIIIGeneral(x.vals, beta0, beta1, k), type='l', lwd=2, lty=4, xlim=c(0,max(x.vals)), xlab="Prey density", ylab="Kill rate")
+       legend(10, 15, paste0("beta0=", beta0, ", beta1=", beta1, ", k=", k), lty=c(4), lwd=2, bty='n')
+  })
+}
+```
+
+# Examples of fitting different models to existing datasets
+
+@Hone:1990PredPrey ...
+
+## Feral/wild pigs
+
+Data from @Hone:1990PredPrey from aerial shooting operation on the Mary River floodplain (Northern Territory). 
+
+```{r, echo=FALSE}
+# Data from Hone 1990 from aerial shooting operation on the Mary River floodplain. 
+Hone1986 <- data.frame(
+  Day=1:9,
+  Effort=c(0.015, 0.022, 0.016, 0.006, 0.16, 0.018, 0.007, 0.019, 0.016),
+  KillsKm2=c(1.017, 0.471, 0.627, 0.210, 0.892, 0.566, 0.414, 0.519, 0.146),
+  KillRate=c(67.8, 21.4, 39.2, 35.0, 55.8, 31.4, 59.1, 27.3, 9.1)
+)
+# Calculate kills over entire site
+Hone1986$Kills <- round(Hone1986$KillsKm2*295)
+
+# Data from Saunders & Bryant (1988) for the Macquarie Marshes in 1985
+MM1985 <- data.frame(
+  Day=1:4,
+  Effort=c(255,405,420,330)/60,
+  Kills=c(208,417,316,74)
+)
+MM1985 <- within(MM1985, {
+  KillsKm2 <- Kills/120
+  KillRate <- Kills/Effort
+})
+# Make table
+kable(Hone1986, caption="Aerial shooting data of feral pigs from Mary River Flooplain, Northern Territory. Reproduced from @Hone:1990PredPrey.")
+
+kable(MM1985, caption="Aerial shooting data of feral pigs from Macquarie Marshes, Western NSW. Reproduced from @Saunders&Bryant:1988.")
+```
+
+A notable feature of the data is the modest decline in the kill rate (see Figure below). This may be a result of the shooters  pseudo-systematic search pattern, whereby "shooting began on the perimeter of the area and continued towards the centre." Hence some of the kill rates for later shooting  sessions (e.g. Day 7) could arise from areas being shot for the first time. Other considerations for model specification include most of the open floodplain being covered with 1--2 metres of water. If the approx. one third of the study areas that was floodplain was subtracted from the total (295 km$^2$) this would change the estimates. 
+
+```{r, fig.cap="Data from aerial shooting operation reported by (A) @Hone:1990PredPrey and (B) @Saunders&Bryant:1988.", echo=FALSE}
+par(mfrow=c(1,2))
+with(Hone1986,
+     plot(Day, KillRate, pch=16, ylim=c(0, max(KillRate)), axes=FALSE, 
+          cex=1.5,
+          ylab=expression(Kill ~ rate ~ hr^-1)))
+  axis(1, lwd=2, at=1:9)
+  axis(2, lwd=2, las=2)
+  mtext("(A)", 3, adj=0)
+
+with(MM1985,
+     plot(Day, KillRate, pch=16, ylim=c(0, max(KillRate)), axes=FALSE, 
+          cex=1.5,
+          ylab=expression(Kill ~ rate ~ hr^-1)))
+  axis(1, lwd=2, at=1:9)
+  axis(2, lwd=2, las=2)
+  mtext("(B)", 3, adj=0)
+  
+```
+## Choice of functional response
+
+Do we need to species-dependent choices, or species x habitat-dependent choices, or can a 3-parameter Type III cover all? 
+
+
+## Fitting functional response models
+
+Fitting functional response models requires that density is known (from a pre-control survey) or can be estimated jointly. Analyses to date [e.g. @Choquenot.etal:1999] have tended to assume the pre-control population is measured without uncertainty. A better approach would be to include uncertainty in the estimate of the pre-control population density. This naturally sends us down the Bayesian path.
+
+```{r}
+# Fitting functional response. 
+
+
+
+```
+
+
+
+
+## Wild deer
+
+Re-fit data from @Bengsen.etal:2023. 
+
+
+
+
+
+# Simulation
+
+It will be useful for model testing and development to be able to simulate realistic removal data from a known population.
+
+
+```{r}
+simShoot <- function(n0=40, A=10, T=10, c.max=40, x.min=2, d=0.5, beta1=20, k=2, effort=NULL, effort.mu=6, searchFunc="Ivlev") {
+# Args:
+#   n0 -- initial population density
+#   N0 -- initial population size  
+#   A -- area inhabited
+#   T -- number of shooting events
+#   c.max -- maximum off-take rate per unit area from Ivlev 
+#   x.min -- density below which animals aren't available
+#   d -- rate of amelioration of off-take rate with decreasing density
+#   effort --- vector of shooting effort
+#   effort.mu -- mean number of hours of per shoot (if effort not specified)
+# Returns: 
+#   A list 
+  x <- rep(NA, T)
+  cull.prop <- rep(0, T)
+  cull.no <- rep(0, T)
+  cull.eff <- rep(NA, T)
+  mu <- rep(NA, T)
+  if(is.null(effort)) {effort <- rep(effort.mu, T)}
+  N <- rep(NA, T)
+  N[1] <- n0*A
+  # Density initially
+  x[1] <- n0
+  # Kill encounter rate per unit time
+  if(searchFunc=="Ivlev") {
+      mu[1] <-  Ivlev(x[1], c.max=c.max, x.min=x.min, d=d)}
+  if(searchFunc=="Choqu") {
+       mu[1] <-  Choquenot(x[1], a=c.max, b=x.min, d=d)}
+  if(searchFunc=="TypeIII"){
+       beta0 <- c.max 
+       mu[1] <- TypeIII(x[1], beta0=beta0, beta1, k)
+  }
+  # Add variation
+  mu[1] <- rpois(1, mu[1])
+  # Encounter & probability per capita
+  cull.prop[1] <- 1 - exp(-mu[1]/(A*x[1])*effort[1])
+  # Number culled with standard binomial variation
+  cull.no[1] <- rbinom(1, N[1], cull.prop[1])
+  # Number culled per unit effort
+  cull.eff[1] <- cull.no[1]/effort[1]
+  # Run simulation
+  for(i in 2:T) { # i=1
+     # Number remaining
+     N[i] <- N[i-1] - cull.no[i-1]
+     # Update density alive
+     x[i] <- N[i]/A
+     # Kill encounter rate per unit time
+     if(searchFunc=="Ivlev") {
+      mu[i] <-  Ivlev(x[i], c.max=c.max, x.min=x.min, d=d)}
+     if(searchFunc=="Choqu") {
+       mu[i] <-  Choquenot(x[i], a=c.max, b=x.min, d=d)}
+     if(searchFunc=="TypeIII"){
+       beta0 <- c.max 
+       mu[i] <- TypeIII(x[i], beta0=beta0, beta1, k)
+     }
+     # Add variation
+     mu[i] <- rpois(1, mu[i])
+     # Encounter & probability per capita
+     cull.prop[i] <- 1 - exp(-mu[i]/(A*x[i])*effort[i])
+     # Number culled with standard binomial variation
+     cull.no[i] <- rbinom(1, N[i], cull.prop[i])
+     # Number culled per unit effort
+     cull.eff[i] <- cull.no[i]/effort[i]
+  }
+  return(list(
+    mu=mu,
+    cull.prop=cull.prop,
+    cull.no=cull.no,
+    cull.eff=cull.eff,
+    x=x,
+    N=N,
+    t=1:T,
+    effort=effort,
+    effort.mu=effort.mu,
+    x.min=x.min,
+    n0=n0,
+    A=A,
+    c.max=c.max,
+    x.min=x.min,
+    d=d,
+    beta0=c.max,
+    beta1=beta1,
+    k=k,
+    T=T
+    ))
+}
+
+if(TEST) {
+  simShoot(n0=20, A=10, T=10, c.max=10, x.min=1.5, d=0.5, effort.mu=6, effort=NULL, searchFunc="Ivlev" )
+  simShoot(n0=20, A=10, T=10, c.max=10, x.min=1.5, d=0.5, effort.mu=6, effort=NULL, searchFunc="Choqu" )
+}
+```
+
+```{r, echo=TRUE, fig.cap="(A) Simulated removals, and (B) Simulated culling rate assuming an Ivlev functional response."}
+# Ivlev example 
+out <- simShoot(n0=20, A=100, T=10, c.max=40, x.min=2, d=0.5, effort.mu=6, effort=NULL, searchFunc="Ivlev" )
+# Plot it
+with(out, {
+  par(mfrow=c(1,2))
+  plot(1:T, cull.no, type='h', lwd=2, ylab="Removals", xlab="Shooting session", axes=FALSE)
+  axis(1, lwd=2, at=t)
+  axis(2, lwd=2, las=2)
+  mtext("(A)", side=3, adj=0, cex=1.5)
+  plot(1:T, cull.eff, pch=16, cex=2, lwd=2, ylab="Removals per hour", xlab="Shooting session", axes=FALSE, ylim=c(0, max(cull.eff, na.rm=TRUE)))
+  axis(1, lwd=2, at=t)
+  axis(2, lwd=2, las=2)
+  mtext("(B)", side=3, adj=0, cex=1.5)
+  legend(1, 20, paste0("c.max=", c.max, ", x.min=", x.min, ", d=", d), lty=(1), lwd=2, title="Shooting parameter settings")
+  legend(1, 10, paste0("Inital density=", n0), lty=(1), lwd=2, title="Population settings")
+  })
+```
+
+Generate some simulated data.
+
+```{r, fig.cap="(A) Simulated removals, and (B) Simulated culling rate assuming a Choquenot-like response.", include=TRUE, echo=FALSE}
+# Choquenot example
+out <- simShoot(n0=20, A=100, T=10, c.max=50, x.min=2, d=0.5, effort.mu=6, effort=NULL, searchFunc="Choqu" )
+# Plot it
+with(out, {
+  par(mfrow=c(1,2))
+  plot(t, cull.no, type="h", lwd=2, ylim=c(0, max(cull.no)), ylab="Removals", xlab="Session", axes=FALSE)
+  axis(1, lwd=2, at=t)
+  axis(2, lwd=2, las=2)
+  mtext("(A)", side=3, adj=0, cex=1.5)
+  plot(t, cull.eff, pch=16, cex=2, lwd=2, ylim=c(0, max(cull.eff, na.rm=TRUE)), ylab="Removals per hour", xlab="Shooting session", axes=FALSE)
+  axis(1, lwd=2, at=t)
+  axis(2, lwd=2, las=2)
+  mtext("(B)", side=3, adj=0, cex=1.5)
+  legend(1, 20, paste0("c.max=", c.max, ", x.min=", x.min, ", d=", d), lty=(1), lwd=2, title="Shooting parameter settings")
+  legend(1, 10, paste0("Inital density=", n0), lty=(1), lwd=2, title="Population settings")
+  }
+)
+```
+
+```{r, fig.cap="(A) Simulated removals, and (B) Simulated culling rate assuming a Type III functional functional response.", include=TRUE, echo=FALSE}
+# TypeIII example
+simTypeIII <- simShoot(n0=20, A=100, T=10, c.max=50, beta1=20, k=4, effort.mu=8, effort=NULL, searchFunc="TypeIII" )
+# Plot it
+with(simTypeIII, {
+  par(mfrow=c(1,2))
+  plot(t, cull.no, type="h", lwd=2, ylim=c(0, max(cull.no)), ylab="Removals", xlab="Session", axes=FALSE)
+  axis(1, lwd=2, at=t)
+  axis(2, lwd=2, las=2)
+  mtext("(A)", side=3, adj=0, cex=1.5)
+  plot(t, cull.eff, pch=16, cex=2, lwd=2, ylim=c(0, max(cull.eff, na.rm=TRUE)), ylab="Removals per hour", xlab="Shooting session", axes=FALSE)
+  axis(1, lwd=2, at=t)
+  axis(2, lwd=2, las=2)
+  mtext("(B)", side=3, adj=0, cex=1.5)
+  legend(1, 10, paste0("c.max=", c.max, ", beta0=", beta0), lty=(1), lwd=2, title="Shooting parameter settings")
+  legend(1, 5, paste0("Inital density=", n0), lty=(1), lwd=2, title="Population settings")
+  }
+)
+```
+
+
+
+
+# Removal estimators
+
+Contexts for the use of removal estimators include:
+
+- single estimate of culls per unit area (i.e. no area re-searched in discrete session)
+- ...
+
+
+
+## Approach of Ramsey *et al.* (2023)
+
+@Ramsey.etal:2023 don't choose a particular functional response when developing a removal estimator for deer populations subject to repeated periods of shooting, where each period comprises several shooting sessions. Key differences to the previous papers discussed include the absence of density dependence in the probability of being shot (i.e. no saturation in the culling rate arising from a fixed handling time per animal). 
+
+
+## Approaches using parametric forms for the functional response
+
+
+ToDo
+
+
+```{r, eval=TRUE, echo=TRUE, include=!FALSE}
+# Model for Type II estimation
+cat("
+model {
+  # Priors
+  n0 ~ dnorm(n0.hat, pow(se.n0.hat,-2))T(0,)
+  beta0 ~ dgamma(25,1/2)  # mean 50
+  beta1 ~ dgamma(10,1/2)    # mean 20
+  k ~ dgamma(16,4)         # mean of 4
+  
+  N0 <- n0*A
+  N[1] <- round(N0)
+  # Density
+  x[1] <- n0 
+  # Kill rate (Type II)
+  mu[1] <- beta0*x[1]^k/(beta1^2 + x[1]^k)
+  p.cull[1] <- 1 - exp(-mu[1]/N[1]*effort[1])
+  # Culls
+  C[1] ~ dbin(p.cull[1], N[1])
+  # Over shooting data
+  for (i in 2:max(T)) {
+    # Remove culls at end of previous period
+    N[i] <- N[i-1] - C[i-1]   
+    x[i] <- N[i]/A
+    # Functional Response model for culls
+    mu[i] <- beta0*x[i]^k/(beta1^2 + x[i]^k)
+    p.cull[i] <- 1 - exp(-mu[i]/N[i]*effort[i])
+    # Culls likelihood
+    C[i] ~ dbin(p.cull[i], N[i])
+   } 
+}", file="estTypeIII.jags")
+```
+
+```{r}
+# Data
+mod.data.sim <- list(T=1:10, 
+                n0.hat=20,
+                se.n0.hat=10,
+                effort=simTypeIII$effort,
+                C=simTypeIII$cull.no,
+                A=simTypeIII$A,
+                c.max=simTypeIII$c.max,
+                x.min=simTypeIII$x.min,
+                d=simTypeIII$d)
+
+# Initialize model
+estTypeIII.sim <- jags.model(
+  file="estTypeII.jags",
+  dat=mod.data.sim,
+  n.chains=3,
+  n.adapt=1000 
+)
+
+# Burn in
+update(estTypeIII.sim, 1E3)
+
+# Parameters of interest
+params <- c("N0","N", "x", "mu", "p.cull")
+
+# Get samples
+estTypeIII.sim.coda <- coda.samples(estTypeIII.sim, params, 1E3) 
+
+post <- as.matrix(estTypeIII.sim.coda)
+
+head(post)
+```
+
+
+
+
+```{r}
+par(mfrow=c(1,3))
+#hist(post[,'N[1]'])
+hist(post[,'x[1]'])
+hist(post[,'mu[1]'])
+
+hist(post[,"N0"])
+abline(v=simTypeIII$n0*simTypeIII$A, lwd=2, col='red')
+
+```
+
+Try fitting to the data of Saunders&Bryant:1988.
+
+```{r}
+mod.data.MM1985 <- list(T=1:4, 
+                n0.hat=50,# from Giles (1980)
+                se.n0.hat=0.5*50, # Placeholder ... pretty flat
+                effort=MM1985$Effort,
+                C=MM1985$Kills,
+                A=125
+                )
+
+# Initialize model
+simShoot.MM1985 <- jags.model(
+  file="simShoot.jags",
+  dat=mod.data.MM1985,
+  n.chains=3,
+  n.adapt=1000 
+)
+
+# Burn in
+update(simShoot.MM1985, 1E3)
+
+# Parameters of interest
+params <- c("N0","N", "x", "mu", "p.cull")
+
+# Get samples
+simShoot.MM1985.coda <- coda.samples(simShoot.MM1985, params, 1E3) 
+
+post <- as.matrix(simShoot.MM1985.coda)
+
+head(post)
+```
+
+```{r}
+par(mfrow=c(2,2))
+hist(post[,'N[1]'], main= "Initial population size")
+hist(post[,'x[1]'], main="Initial population density")
+hist(post[,'mu[1]'], main="Session 1 kill rate")
+
+```
+
+
+
+# References
+
+
+
