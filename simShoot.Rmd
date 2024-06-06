@@ -285,6 +285,8 @@ Hone1986 <- data.frame(
 )
 # Calculate kills over entire site
 Hone1986$Kills <- round(Hone1986$KillsKm2*295)
+Hone1986 <- Hone1986[,c("Day", "Effort", "Kills", "KillRate", "KillsKm2")]
+
 
 # Data from Saunders & Bryant (1988) for the Macquarie Marshes in 1985
 MM1985 <- data.frame(
