@@ -580,7 +580,7 @@ mod.data.sim <- list(T=1:10,
 
 # Initialize model
 estTypeIII.sim <- jags.model(
-  file="estTypeII.jags",
+  file="estTypeIII.jags",
   dat=mod.data.sim,
   n.chains=3,
   n.adapt=1000 
@@ -627,7 +627,7 @@ mod.data.MM1985 <- list(T=1:4,
 
 # Initialize model
 simShoot.MM1985 <- jags.model(
-  file="simShoot.jags",
+  file="estTypeIII.jags",
   dat=mod.data.MM1985,
   n.chains=3,
   n.adapt=1000 
