@@ -530,7 +530,7 @@ Contexts for the use of removal estimators include:
 ## Approaches using parametric forms for the functional response
 
 
-ToDo todo todo
+ToDo todo todo todo
 
 
 ```{r, eval=TRUE, echo=TRUE, include=!FALSE}
