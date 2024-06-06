@@ -513,7 +513,7 @@ with(simTypeIII, {
 
 
 
-# Removal estimators
+# Removal estimators 
 
 Contexts for the use of removal estimators include:
 
@@ -530,7 +530,7 @@ Contexts for the use of removal estimators include:
 ## Approaches using parametric forms for the functional response
 
 
-ToDo todo
+ToDo todo todo
 
 
 ```{r, eval=TRUE, echo=TRUE, include=!FALSE}
