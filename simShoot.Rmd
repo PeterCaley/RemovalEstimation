@@ -160,7 +160,6 @@ if(PLOT.IT) {
        legend(10, 30, paste0("a=", a, ", b=", b, ", d=", d), lty=(1), lwd=2, title="Parameter settings")
   })
 }
-
 ```
 
 The specification of a proportion of animals being unable to be preyed on is an approximation (e.g. where a proportion of animals learn to use and have access to refuges with zero visibility). It's inclusion by @Choquenot.etal:1999 presumably reflects the first-hand experience of the authors. For example, @Saunders&Bryant:1988 document pigs that were known (from radio-collaring data) to be present though never sighted during a helicopter shooting exercise due to hiding in tall reeds.  It assumes that removing animals becomes infinitely expensive (by shooting from a helicopter at least). 
@@ -279,12 +278,15 @@ Data from @Hone:1990PredPrey from aerial shooting operation on the Mary River fl
 # Data from Hone 1990 from aerial shooting operation on the Mary River floodplain. 
 Hone1986 <- data.frame(
   Day=1:9,
-  Effort=c(0.015, 0.022, 0.016, 0.006, 0.16, 0.018, 0.007, 0.019, 0.016),
+  EffortKm2=c(0.015, 0.022, 0.016, 0.006, 0.016, 0.018, 0.007, 0.019, 0.016),
   KillsKm2=c(1.017, 0.471, 0.627, 0.210, 0.892, 0.566, 0.414, 0.519, 0.146),
   KillRate=c(67.8, 21.4, 39.2, 35.0, 55.8, 31.4, 59.1, 27.3, 9.1)
 )
 # Calculate kills over entire site
-Hone1986$Kills <- round(Hone1986$KillsKm2*295)
+Hone1986 <- within(Hone1986, {
+    Kills <- round(KillsKm2*295)
+    Effort <- EffortKm2*295
+})
 Hone1986 <- Hone1986[,c("Day", "Effort", "Kills", "KillRate", "KillsKm2")]
 
 
@@ -295,8 +297,8 @@ MM1985 <- data.frame(
   Kills=c(208,417,316,74)
 )
 MM1985 <- within(MM1985, {
-  KillsKm2 <- Kills/120
-  KillRate <- Kills/Effort
+  KillsKm2 <- round(Kills/120, 2)
+  KillRate <- round(Kills/Effort, 2)
 })
 # Make table
 kable(Hone1986, caption="Aerial shooting data of feral pigs from Mary River Flooplain, Northern Territory. Reproduced from @Hone:1990PredPrey.")
@@ -494,7 +496,7 @@ with(out, {
 
 ```{r, fig.cap="(A) Simulated removals, and (B) Simulated culling rate assuming a Type III functional functional response.", include=TRUE, echo=FALSE}
 # TypeIII example
-simTypeIII <- simShoot(n0=20, A=100, T=10, c.max=50, beta1=20, k=4, effort.mu=8, effort=NULL, searchFunc="TypeIII" )
+simTypeIII <- simShoot(n0=20, A=100, T=10, c.max=50, beta1=20, k=4, effort.mu=6, effort=NULL, searchFunc="TypeIII" )
 # Plot it
 with(simTypeIII, {
   par(mfrow=c(1,2))
@@ -532,7 +534,7 @@ Contexts for the use of removal estimators include:
 ## Approaches using parametric forms for the functional response
 
 
-ToDo todo todo todo
+ToDo
 
 
 ```{r, eval=TRUE, echo=TRUE, include=!FALSE}
@@ -541,7 +543,7 @@ cat("
 model {
   # Priors
   n0 ~ dnorm(n0.hat, pow(se.n0.hat,-2))T(0,)
-  beta0 ~ dgamma(25,1/2)  # mean 50
+  beta0 ~ dgamma(5,1/10)  # mean 50
   beta1 ~ dgamma(10,1/2)    # mean 20
   k ~ dgamma(16,4)         # mean of 4
   
@@ -567,6 +569,9 @@ model {
    } 
 }", file="estTypeIII.jags")
 ```
+
+
+Try recovering parameters from known simulation ... 
 
 ```{r}
 # Data
