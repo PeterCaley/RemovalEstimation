@@ -26,6 +26,7 @@ options(knitr.kable.NA = "", scipen = 22)
 suppressPackageStartupMessages({
   library(tidyverse)
   library(rjags)
+  library(here)
 })
 TEST <- FALSE
 PLOT.IT <- TRUE
