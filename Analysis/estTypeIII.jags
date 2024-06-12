@@ -1,0 +1,29 @@
+
+model {
+  # Priors
+  n0 ~ dnorm(n0.hat, pow(se.n0.hat,-2))T(0,)
+  beta0 ~ dgamma(5,1/10)  # mean 50
+  beta1 ~ dgamma(10,1/2)    # mean 20
+  k ~ dgamma(16,4)         # mean of 4
+  
+  N0 <- n0*A
+  N[1] <- round(N0)
+  # Density
+  x[1] <- n0 
+  # Kill rate (Type II)
+  mu[1] <- beta0*x[1]^k/(beta1^2 + x[1]^k)
+  p.cull[1] <- 1 - exp(-mu[1]/N[1]*effort[1])
+  # Culls
+  C[1] ~ dbin(p.cull[1], N[1])
+  # Over shooting data
+  for (i in 2:max(T)) {
+    # Remove culls at end of previous period
+    N[i] <- N[i-1] - C[i-1]   
+    x[i] <- N[i]/A
+    # Functional Response model for culls
+    mu[i] <- beta0*x[i]^k/(beta1^2 + x[i]^k)
+    p.cull[i] <- 1 - exp(-mu[i]/N[i]*effort[i])
+    # Culls likelihood
+    C[i] ~ dbin(p.cull[i], N[i])
+   } 
+}
