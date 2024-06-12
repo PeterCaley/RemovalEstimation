@@ -197,18 +197,18 @@ Data from @Hone:1990PredPrey from aerial shooting operation on the Mary River fl
 
 ```{r, echo=FALSE}
 # Data from Hone 1990 from aerial shooting operation on the Mary River floodplain. 
-Hone1986 <- data.frame(
+MR1986 <- data.frame(
   Day=1:9,
   EffortKm2=c(0.015, 0.022, 0.016, 0.006, 0.016, 0.018, 0.007, 0.019, 0.016),
   KillsKm2=c(1.017, 0.471, 0.627, 0.210, 0.892, 0.566, 0.414, 0.519, 0.146),
   KillRate=c(67.8, 21.4, 39.2, 35.0, 55.8, 31.4, 59.1, 27.3, 9.1)
 )
 # Calculate kills over entire site
-Hone1986 <- within(Hone1986, {
+MR1986 <- within(MR1986, {
     Kills <- round(KillsKm2*295)
     Effort <- EffortKm2*295
 })
-Hone1986 <- Hone1986[,c("Day", "Effort", "Kills", "KillRate", "KillsKm2")]
+MR1986 <- MR1986[,c("Day", "Effort", "Kills", "KillRate", "KillsKm2")]
 
 
 # Data from Saunders & Bryant (1988) for the Macquarie Marshes in 1985
@@ -222,7 +222,7 @@ MM1985 <- within(MM1985, {
   KillRate <- round(Kills/Effort, 2)
 })
 # Make table
-kable(Hone1986, caption="Aerial shooting data of feral pigs from Mary River Flooplain, Northern Territory. Reproduced from @Hone:1990PredPrey.")
+kable(MR1986, caption="Aerial shooting data of feral pigs from Mary River Flooplain, Northern Territory. Reproduced from @Hone:1990PredPrey.")
 
 kable(MM1985, caption="Aerial shooting data of feral pigs from Macquarie Marshes, Western NSW. Reproduced from @Saunders&Bryant:1988.")
 ```
@@ -231,7 +231,7 @@ A notable feature of the data is the modest decline in the kill rate (see Figure
 
 ```{r, fig.cap="Data from aerial shooting operation reported by (A) @Hone:1990PredPrey and (B) @Saunders&Bryant:1988.", echo=FALSE}
 par(mfrow=c(1,2))
-with(Hone1986,
+with(MR1986,
      plot(Day, KillRate, pch=16, ylim=c(0, max(KillRate)), axes=FALSE, 
           cex=1.5,
           ylab=expression(Kill ~ rate ~ hr^-1)))
@@ -459,7 +459,7 @@ ToDo
 
 
 ```{r, eval=TRUE, echo=TRUE, include=!FALSE}
-# Model for Type II estimation
+# Model for Type III estimation
 cat("
 model {
   # Priors
@@ -546,12 +546,14 @@ Try fitting to the data of Saunders&Bryant:1988.
 
 ```{r}
 mod.data.MM1985 <- list(T=1:4, 
-                n0.hat=50,# from Giles (1980)
+                n0.hat=50,   # from Giles (1980)
                 se.n0.hat=0.5*50, # Placeholder ... pretty flat
                 effort=MM1985$Effort,
                 C=MM1985$Kills,
                 A=125
                 )
+
+# Check out data
 
 # Initialize model
 simShoot.MM1985 <- jags.model(
@@ -577,13 +579,62 @@ head(post)
 
 ```{r}
 par(mfrow=c(2,2))
-hist(post[,'N[1]'], main= "Initial population size")
-hist(post[,'x[1]'], main="Initial population density")
+hist(post[,'N[1]'], main= "Initial population size", probability=TRUE)
+hist(post[,'x[1]'], main="Initial population density", probability=TRUE)
+hist(post[,'x[1]'], main="Initial population density", probability=TRUE, xlim=c(0,100))
+# add prior
+curve(dnorm(x, mean=50, sd=0.5*50), add=TRUE)
 hist(post[,'mu[1]'], main="Session 1 kill rate")
 
 ```
 
+Repeat for the data from @Hone:1990PredPrey
 
+```{r}
+mod.data.MR1986 <- list(T=1:nrow(MR1986), 
+                n0.hat=50,   # from Giles (1980)
+                se.n0.hat=0.5*50, # Placeholder ... pretty flat
+                effort=MR1986$Effort,
+                C=MR1986$Kills,
+                A=295
+                )
+
+# Check out data
+
+# Initialize model
+simShoot.MR1986 <- jags.model(
+  file="estTypeIII.jags",
+  dat=mod.data.MR1986,
+  n.chains=3,
+  n.adapt=1000 
+)
+
+# Burn in
+update(simShoot.MR1986, 1E3)
+
+# Parameters of interest
+params <- c("N0","N", "x", "mu", "p.cull")
+
+# Get samples
+simShoot.MR1986.coda <- coda.samples(simShoot.MR1986, params, 1E3) 
+
+post <- as.matrix(simShoot.MR1986.coda)
+
+head(post)
+```
+
+
+```{r, fig.cap="Posterior estimates for fitting model to shooting data of feral pigs from the Mary River Floodplain."}
+par(mfrow=c(2,2))
+hist(post[,'N[1]'], main= "Initial population size", probability=TRUE)
+hist(post[,'x[1]'], main="Initial population density", probability=TRUE)
+abline(v=6.13, lwd=2, col='red')
+hist(post[,'x[1]'], main="Initial population density", probability=TRUE, xlim=c(0,100))
+# add prior
+curve(dnorm(x, mean=50, sd=0.5*50), add=TRUE)
+hist(post[,'mu[1]'], main="Session 1 kill rate")
+
+```
 
 # References
 
