@@ -592,8 +592,10 @@ Repeat for the data from @Hone:1990PredPrey
 
 ```{r}
 mod.data.MR1986 <- list(T=1:nrow(MR1986), 
-                n0.hat=50,   # from Giles (1980)
-                se.n0.hat=0.5*50, # Placeholder ... pretty flat
+                #n0.hat=50,   # from Giles (1980)
+                #se.n0.hat=0.25*50, # Placeholder ... pretty flat
+                n0.hat=6.1,   # from Hone (1990)
+                se.n0.hat=0.25*6.1, # ToDo Guess from Hone(1990)
                 effort=MR1986$Effort,
                 C=MR1986$Kills,
                 A=295
@@ -631,7 +633,7 @@ hist(post[,'x[1]'], main="Initial population density", probability=TRUE)
 abline(v=6.13, lwd=2, col='red')
 hist(post[,'x[1]'], main="Initial population density", probability=TRUE, xlim=c(0,100))
 # add prior
-curve(dnorm(x, mean=50, sd=0.5*50), add=TRUE)
+curve(dnorm(x, mean=50, sd=0.25*50), add=TRUE)
 hist(post[,'mu[1]'], main="Session 1 kill rate")
 
 ```
