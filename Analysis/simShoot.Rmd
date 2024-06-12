@@ -30,6 +30,7 @@ suppressPackageStartupMessages({
 })
 TEST <- FALSE
 PLOT.IT <- TRUE
+source("../Prep/functions.R")
 ```
 
 # Introduction
@@ -99,20 +100,6 @@ The parameterisation of this model as some advantages over the Ivlev one in term
 
 Note that the units of the kill rate could also be expressed as kills per area per unit time. 
 
-```{r, echo=FALSE}
-# Function used by Choquenot et al 1999
-Choquenot <- function(x=20, a=40, b=1, d=0.5) {
-# b -- population density below which no prey can (effectively) be shot
-# a -- asymptotic maximum rate of kill at high prey density
-# d -- effect of declining prey density on shooting efficiency 
-# x -- prey density   
- 	kill.rate <- a*(1 - exp(-(x-b)*d))
- 	# Adjust for "unshootable"  population
- 	kill.rate[x<=b] <- 0
-	return(kill.rate)
-}
-```
-
 ```{r, fig.cap="Example of functional response used by @Choquenot.etal:1999.", include=TRUE, echo=!TRUE}
 if(PLOT.IT) {
   pars <- list(a=40, b=2, d=0.5, x.vals=seq(0, 20, 0.1))
@@ -137,28 +124,6 @@ It is somewhat strange that @Choquenot.etal:1999 didn't choose one of the standa
 $$
    c = \frac{\beta_0 x^2}{\beta_1^2 + x^2}
 $$
-
-
-```{r, echo=FALSE}
-# Holling Type III Functional response used by Pech et al 1992  
-
-TypeIII <- function(x, beta0, beta1, k=2) {
-# Args:
-#   beta0 -- Parameter reflecting shooting saturation c.max
-#   beta1 -- Parameter determining the rate at which c.max is approached
-#    k -- parameter
-  c <- beta0*x^k/(beta1^2+x^k)
-  return(c)
-}
-
-if(TEST) {
-  plot(seq(0,20,1), TypeIII(seq(0,20,1), beta0=40, beta1=10, k=2), type = 'l', ylim=c(0,40))
-  lines(seq(0,20,1), TypeIII(seq(0,20,1), beta0=40, beta1=2, k=2), lty=2)
-  lines(seq(0,20,1), TypeIII(seq(0,20,1), beta0=40, beta1=2, k=3), lty=2)
-  lines(seq(0,20,1), TypeIII(seq(0,20,1), beta0=40, beta1=10, k=3), lty=3)
-  lines(seq(0,20,1), TypeIII(seq(0,20,1), beta0=40, beta1=10, k=4), lty=4)
-}
-```
 
 Here the kill rate saturates at $\beta_0$. A limitation of this 2-parameter form of a Type III response is that it is difficult to have a pronounced sigmoidal shape that captures a significant density of prey that are unavailable, without a pronounced flattening of the curve (i.e. the shooting rate is slow to reach saturation). This can be addressed by allowing the exponent of $x$ to be free ($k$). Increasing $k$ shortens the time to reaching shooting saturation. Combinations of high values of both $k$ and $\beta_1$ can produce more pronounced sigmoidal shapes, similar to the 'generalised' Type III functional response (see below). 
 
@@ -194,15 +159,6 @@ $$
 Where the kill rate saturates at $1/\beta_1$, and the additional parameter $k$ determines how quickly (in terms of increasing density) shooting saturation is reached. Higher rates of $k$ enable a more pronounced sigmoidal shape. Note that once prey density increases beyond the minimum (effectively $c_{max}$) the slope should not exceed one. That is, the kill rate shouldn't increase more quickly than the increase in prey density [Specifying statistical priors to achieve this may be a touch challenging ...]. 
 
 ```{r, fig.cap="Example of generalised Type III functional response."}
-   TypeIIIGeneral <- function(x, beta0, beta1, k) {
-    # Args:
-    #   beta0 -- ToDo
-    #   beta1 -- Parameter determining saturation rate c.max = 1/beta1
-    #   k -- Parameter controlling rate at which saturation is approached
-     c <- beta0*x^k/(1 + beta0*beta1*x^k)
-     return(c)
-   }
-
 if(PLOT.IT) {
   pars1 <- list(beta0=0.1, beta1=1/40, k=4, x.vals=seq(0, 20, 0.1))
   pars2 <- list(beta0=0.1, beta1=1/40, k=5, x.vals=seq(0, 20, 0.1))

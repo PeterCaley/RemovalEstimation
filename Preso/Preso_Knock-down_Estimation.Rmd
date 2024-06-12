@@ -1,0 +1,43 @@
+---
+title: "Operational estimates of knock-down"
+author: "Peter Caley (peter.caley@csiro.au)"
+date: "2024-06-11"
+output: 
+  beamer_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("../Prep/functions.R")
+```
+
+## Talk outline
+
+
+
+
+## Functional responses lie at the heart of removal estimators
+
+```{r, echo=FALSE}
+  # For Choquenot type
+  pars1 <- list(a=40, b=2, d=0.2, x.vals=seq(0, 20, 0.1))
+  with(pars1, {
+	    plot(x.vals, Choquenot(x.vals,a,b,d), type='l', lwd=2, xlim=c(0, max(x.vals)), 
+	         xlab="Prey density", ylab="Kill rate", axes=F)
+      axis(1, lwd=3, pos=-0.2)
+      axis(2, lwd=3, pos=-0.25, las=2)
+      abline(h=40, lty=2)
+      legend(10, 30, paste0("a=", a, ", b=", b, ", d=", d), lty=(1), lwd=2, title="Choquenot-type")
+  })
+  # Add Type III
+  pars2 <- list(beta0=40, beta1=15, k=3)
+  with(pars2, {
+      lines(seq(0,20,1), TypeIII(seq(0,20,1), beta0, beta1, k), lty=2, lwd=2)
+      legend(10, 20, paste0("beta0=", beta0, ", beta1=", beta1, ", k=", k), lty=(1), lwd=2, title="Type III")
+  })
+
+```
+
+## Background
+
+
