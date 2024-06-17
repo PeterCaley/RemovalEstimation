@@ -464,7 +464,7 @@ model {
   n0 ~ dnorm(n0.hat, pow(se.n0.hat,-2))T(0,)
   beta0 ~ dgamma(beta0_shape, beta0_rate) 
   beta1 ~ dgamma(beta1_shape, beta1_rate) 
-  k ~ dgamma(16,4)         # mean of 4
+  k ~ dgamma(k_shape, k_rate)         
   
   N0 <- n0*A
   N[1] <- round(N0)
@@ -486,9 +486,10 @@ model {
     # Check this next line -- it appeals to an exponential model to avoid a 
     # culling proportion greater than one. 
     # ... ToDo -- 
-    p.cull[i] <- 1 - exp(-mu[i]*cull.eff[i]/N[i])
+    #p.cull[i] <- 1 - exp(-mu[i]*cull.eff[i]/N[i])
     # Culls likelihood
-    cull.no[i] ~ dbin(p.cull[i], N[i])
+    #cull.no[i] ~ dbin(p.cull[i], N[i])
+    cull.no[i] ~ dpois(mu[i]*cull.eff[i])
   } 
    
   # Predictive distribution
@@ -508,6 +509,7 @@ mod.data.sim <- list(T=simTypeIII$t,
                 se.n0.hat=10, 
                 beta0_shape=5,  beta0_rate=1/10,# mean 50
                 beta1_shape=5, beta1_rate=1/4,   # mean 20
+                k_shape=2, k_rate=1/2, 
                 cull.eff=simTypeIII$cull.eff,
                 cull.no=simTypeIII$cull.no,
                 A=simTypeIII$A,
@@ -580,6 +582,7 @@ mod.data.MM1985 <- list(T=1:4,
                 se.n0.hat=0.5*50, # Placeholder ... pretty flat
                 beta0_shape=5,  beta0_rate=1/10,# mean 50
                 beta1_shape=5, beta1_rate=1/4,   # mean 20
+                k_shape=1, k_rate=1/10,
                 cull.eff=MM1985$Effort,
                 cull.rate=MM1985$KillRate,
                 cull.no=MM1985$Kills,
@@ -653,7 +656,8 @@ mod.data.MR1986 <- list(T=1:nrow(MR1986),
                 #n0.hat=6.1,   # from Hone (1990)
                 #se.n0.hat=0.25*6.1, # ToDo Guess from Hone(1990)
                 beta0_shape=5,  beta0_rate=1/10, # mean 50
-                beta1_shape=5, beta1_rate=1/4,   # mean 20
+                beta1_shape=1, beta1_rate=1/10,   # mean 20
+                k_shape=1, k_rate=1/10,
                 cull.eff=MR1986$Effort,
                 cull.rate=MR1986$KillRate,
                 cull.no=MR1986$Kills,
