@@ -464,7 +464,7 @@ model {
   n0 ~ dnorm(n0.hat, pow(se.n0.hat,-2))T(0,)
   beta0 ~ dgamma(beta0_shape, beta0_rate) 
   beta1 ~ dgamma(beta1_shape, beta1_rate) 
-  k ~ dgamma(16,4)         # mean of 4
+  k ~ dgamma(k_shape, k_rate)         
   
   N0 <- n0*A
   N[1] <- round(N0)
@@ -486,9 +486,10 @@ model {
     # Check this next line -- it appeals to an exponential model to avoid a 
     # culling proportion greater than one. 
     # ... ToDo -- 
-    p.cull[i] <- 1 - exp(-mu[i]*cull.eff[i]/N[i])
+    #p.cull[i] <- 1 - exp(-mu[i]*cull.eff[i]/N[i])
     # Culls likelihood
-    cull.no[i] ~ dbin(p.cull[i], N[i])
+    #cull.no[i] ~ dbin(p.cull[i], N[i])
+    cull.no[i] ~ dpois(mu[i]*cull.eff[i])
   } 
    
   # Predictive distribution
@@ -508,6 +509,7 @@ mod.data.sim <- list(T=simTypeIII$t,
                 se.n0.hat=10, 
                 beta0_shape=5,  beta0_rate=1/10,# mean 50
                 beta1_shape=5, beta1_rate=1/4,   # mean 20
+                k_shape=2, k_rate=1, 
                 cull.eff=simTypeIII$cull.eff,
                 cull.no=simTypeIII$cull.no,
                 A=simTypeIII$A,
@@ -528,7 +530,7 @@ estTypeIII.sim <- jags.model(
 update(estTypeIII.sim, 1E3)
 
 # Parameters of interest
-params <- c("N0","N", "x", "mu", "mu_pred", "p.cull")
+params <- c("N0","N", "x", "k", "beta0", "beta1", "mu", "mu_pred", "p.cull")
 
 # Get samples
 estTypeIII.sim.coda <- coda.samples(estTypeIII.sim, params, 1E3) 
@@ -545,10 +547,10 @@ Check out posteriors.
 ```{r, echo=FALSE}
 par(mfrow=c(1,3))
 #hist(post[,'N[1]'])
-hist(post[,'x[1]'], main="Initial population density")
-hist(post[,"N0"], main="Initial population size")
+hist(post[,'x[1]'], main="", xlab="Initial population density")
+hist(post[,"N0"], main="", xlab="Initial population size")
 abline(v=simTypeIII$n0*simTypeIII$A, lwd=2, col='red')
-hist(post[,'mu[1]'])
+hist(post[,'beta0'], main="", xlab="Maxiumum kill rate", prob=TRUE)
 
 ```
 
@@ -565,9 +567,9 @@ n.col.names <- paste0("x[", simTypeIII$t, "]")
 n.means <-  apply(post[,n.col.names], 2, mean)
 
 with(simTypeIII,{
-  plot(x, cull.rate, pch=16, col='blue', xlim=c(0,n0), ylim=c(0,max(1.2*simTypeIII$beta0)))
+  plot(x, cull.rate, pch=16, col='blue', xlim=c(0,n0), ylim=c(0,max(1.2*simTypeIII$beta0)),
+       xlab="Estimated population density", ylab="Kill rate")
 })
-lines(n.means, mu.means)
 lines(mod.data.sim$x_pred, mu.pred.means, lwd=2)
 
 ```
@@ -580,6 +582,7 @@ mod.data.MM1985 <- list(T=1:4,
                 se.n0.hat=0.5*50, # Placeholder ... pretty flat
                 beta0_shape=5,  beta0_rate=1/10,# mean 50
                 beta1_shape=5, beta1_rate=1/4,   # mean 20
+                k_shape=1, k_rate=1/10,
                 cull.eff=MM1985$Effort,
                 cull.rate=MM1985$KillRate,
                 cull.no=MM1985$Kills,
@@ -601,7 +604,7 @@ simShoot.MM1985 <- jags.model(
 update(simShoot.MM1985, 1E3)
 
 # Parameters of interest
-params <- c("N0","N", "x", "mu", "mu_pred", "p.cull")
+params <- c("N0","N", "x", "mu", "mu_pred", "k", "p.cull")
 
 # Get samples
 simShoot.MM1985.coda <- coda.samples(simShoot.MM1985, params, 1E3) 
@@ -612,16 +615,17 @@ head(post)
 ```
 
 ```{r}
-par(mfrow=c(1,2))
+par(mfrow=c(1,3))
 #hist(post[,'N[1]'], main="Initial population size", probability=TRUE)
-hist(post[,'x[1]'], main="Initial population density", probability=TRUE)
-hist(post[,'x[1]'], main="Initial population density", probability=TRUE, xlim=c(0,100))
+hist(post[,'x[1]'], main="", probability=TRUE, xlab="Initial population density")
+hist(post[,'x[1]'], main="", probability=TRUE, xlab="Initial population density", xlim=c(0,100))
 # add prior
 curve(dnorm(x, mean=50, sd=0.5*50), add=TRUE)
+hist(post[,'k'], main="", probability=TRUE, xlab="k")
 #hist(post[,'mu[1]'], main="Session 1 kill rate")
 ```
 
-```{r,}
+```{r, fig.cap="Kill rates as a function of estimated density for feral pigs on the Maquaries Marshes, western NSW. Source: @Saunders&Bryant:1988"}
 # Calculate mean kill rates 
 mu.col.names <- paste0("mu[", MM1985$Day, "]")
 mu.means <-  apply(post[, mu.col.names], 2, mean)
@@ -631,11 +635,13 @@ n_hat.col.names <- paste0("x[", MM1985$Day, "]")
 n_hat.means <-  apply(post[,n_hat.col.names], 2, mean)
 
 with(mod.data.MM1985, {
-     plot(n_hat.means, cull.rate, pch=16, col='blue', ylim=c(0, 1.2*max(cull.rate)), axes=FALSE, xlim=c(0, max(n_hat.means)))
+     plot(n_hat.means, cull.rate, pch=16, col='blue', ylim=c(0, 1.2*max(cull.rate)), axes=FALSE, xlim=c(0, max(n_hat.means)),
+          xlab="Estimated density", ylab="Cull rate")
   axis(1, lwd=3)
   axis(2, lwd=2, las=2)
 })
-lines(mod.data.MM1985$x_pred, mu.pred.means, pch=16, ylim=c(0,300), lwd=2)
+lines(mod.data.MM1985$x_pred, mu.pred.means, pch=16, ylim=c(0,300), lwd=2, 
+      xlab="Estimated density", ylab="Kill rate")
 
 ```
 
@@ -646,6 +652,8 @@ lines(mod.data.MM1985$x_pred, mu.pred.means, pch=16, ylim=c(0,300), lwd=2)
 
 ### Mary River floodplain shoot from @Hone:1990PredPrey
 
+This shoot was undertaken in the wet season, with much of the floodplain covered in deep water. Shooting was undertaken from a ToDo. 
+
 ```{r, echo=FALSE, include=FALSE}
 mod.data.MR1986 <- list(T=1:nrow(MR1986), 
                 n0.hat=50,   # from Giles (1980)
@@ -653,7 +661,8 @@ mod.data.MR1986 <- list(T=1:nrow(MR1986),
                 #n0.hat=6.1,   # from Hone (1990)
                 #se.n0.hat=0.25*6.1, # ToDo Guess from Hone(1990)
                 beta0_shape=5,  beta0_rate=1/10, # mean 50
-                beta1_shape=5, beta1_rate=1/4,   # mean 20
+                beta1_shape=1, beta1_rate=1/10,   # mean 20
+                k_shape=1, k_rate=1/10,
                 cull.eff=MR1986$Effort,
                 cull.rate=MR1986$KillRate,
                 cull.no=MR1986$Kills,
@@ -675,7 +684,7 @@ simShoot.MR1986 <- jags.model(
 update(simShoot.MR1986, 1E3)
 
 # Parameters of interest
-params <- c("N0","N", "x", "mu", "mu_pred", "p.cull")
+params <- c("N0","N", "x", "beta0", "mu", "mu_pred", "k", "p.cull")
 
 # Get samples
 simShoot.MR1986.coda <- coda.samples(simShoot.MR1986, params, 10E3) 
@@ -686,20 +695,20 @@ head(post)
 ```
 
 
-```{r, fig.cap="Posterior estimates for fitting model to shooting data of feral pigs from the Mary River Floodplain."}
+```{r, echo=FALSE, fig.cap="Posterior estimates for fitting model to shooting data of feral pigs from the Mary River Floodplain, Northern Territory."}
 par(mfrow=c(2,2))
-hist(post[,'N[1]'], main= "Initial population size", probability=TRUE)
-hist(post[,'x[1]'], main="Initial population density", probability=TRUE)
+#hist(post[,'N[1]'], main= "", probability=TRUE, xlab="Initial population size")
+hist(post[,'x[1]'], main="", probability=TRUE, xlab="Initial population density")
 abline(v=6.13, lwd=2, col='red')
-hist(post[,'x[1]'], main="Initial population density", probability=TRUE, xlim=c(0,100))
+hist(post[,'x[1]'], main="", probability=TRUE, xlim=c(0,100), xlab="Initial population density")
 # add prior
 curve(dnorm(x, mean=50, sd=0.25*50), add=TRUE)
-hist(post[,'mu[1]'], main="Session 1 kill rate")
-
+hist(post[,'beta0'], main="", xlab="Maximum kill rate")
+hist(post[,'k'], main="", xlab="k")
 ```
 
 
-```{r,}
+```{r, fig.cap="Kill rates as a function of estimated density for feral pigs on the Mary River Floodplain, Northern Territory. Source: @Hone:1990PredPrey", echo=FALSE}
 # Calculate mean kill rates 
 mu.col.names <- paste0("mu[", MR1986$Day, "]")
 mu.means <-  apply(post[, mu.col.names], 2, mean)
@@ -709,12 +718,12 @@ n_hat.col.names <- paste0("x[", MR1986$Day, "]")
 n_hat.means <-  apply(post[,n_hat.col.names], 2, mean)
 
 with(mod.data.MR1986, {
-     plot(n_hat.means, cull.rate, pch=16, col='blue', ylim=c(0, max(cull.rate)), axes=FALSE, xlim=c(0,max(n_hat.means)))
+     plot(n_hat.means, cull.rate, pch=16, col='blue', ylim=c(0, max(cull.rate)), axes=FALSE, xlim=c(0,max(n_hat.means)),
+          xlab="Estimated density", ylab="Kill rate")
   axis(1, lwd=3)
   axis(2, lwd=2, las=2)
 })
 lines(mod.data.MR1986$x_pred, mu.pred.means, pch=16, ylim=c(0,300), lwd=2)
-
 ```
 
 
