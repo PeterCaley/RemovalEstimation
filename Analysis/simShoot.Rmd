@@ -39,7 +39,7 @@ Central to using culling/removal rate to estimate abundance is the underlying re
 
 Some key points to note. 
 
-- If the functional response relationship is well known, then only a single shooting session covering a representative sample of the area of interest would be required to obtain an estimate of initial population size/density. Note there are a bunch of qualifiers to this. For example, if the density is above the level at at which shooting saturation occurs, then you will only have a minimum estimate of density.  
+- If the functional response relationship is well known, then only a single shooting session covering a representative sample of the area of interest would be required to obtain an estimate of initial population size/density. Note there are a bunch of qualifiers to this. For example, if the density is above the level at at which shooting saturation occurs, then only the lower bound for the estimate of density will be estimated with any precision.  
 - If the functional response relationship is not known, then it needs to be estimated, which requires that the proportion of the population removed during sessions is sufficient to generate a decline in the kill rate enabling calibration. If there is no detectable decline in the culling rate, then the estimated population under saturating forms of the functional response is infinite.
 - Finally, there is likely to be prior information available on the likely density of animals within the area of interest, along with the dominant vegetation type and what effect this may have on shape of the functional response relationship. Where such information is available and can be expressed quantitatively, Bayesian statistical methods are typically the best way of incorporation. 
 
@@ -297,7 +297,7 @@ simShoot <- function(n0=40, A=10, T=10, c.max=40, x.min=2, d=0.5, beta1=20, k=2,
   x <- rep(NA, T)
   cull.prop <- rep(0, T)
   cull.no <- rep(0, T)
-  cull.eff <- rep(NA, T)
+  cull.rate <- rep(NA, T)
   mu <- rep(NA, T)
   if(is.null(effort)) {effort <- rep(effort.mu, T)}
   N <- rep(NA, T)
@@ -320,7 +320,7 @@ simShoot <- function(n0=40, A=10, T=10, c.max=40, x.min=2, d=0.5, beta1=20, k=2,
   # Number culled with standard binomial variation
   cull.no[1] <- rbinom(1, N[1], cull.prop[1])
   # Number culled per unit effort
-  cull.eff[1] <- cull.no[1]/effort[1]
+  cull.rate[1] <- cull.no[1]/effort[1]
   # Run simulation
   for(i in 2:T) { # i=1
      # Number remaining
@@ -343,18 +343,18 @@ simShoot <- function(n0=40, A=10, T=10, c.max=40, x.min=2, d=0.5, beta1=20, k=2,
      # Number culled with standard binomial variation
      cull.no[i] <- rbinom(1, N[i], cull.prop[i])
      # Number culled per unit effort
-     cull.eff[i] <- cull.no[i]/effort[i]
+     cull.rate[i] <- cull.no[i]/effort[i]
   }
   return(list(
     mu=mu,
     cull.prop=cull.prop,
     cull.no=cull.no,
-    cull.eff=cull.eff,
+    cull.rate=cull.rate,
+    cull.eff=effort,
+    effort.mu=effort.mu,
     x=x,
     N=N,
     t=1:T,
-    effort=effort,
-    effort.mu=effort.mu,
     x.min=x.min,
     n0=n0,
     A=A,
@@ -384,7 +384,7 @@ with(out, {
   axis(1, lwd=2, at=t)
   axis(2, lwd=2, las=2)
   mtext("(A)", side=3, adj=0, cex=1.5)
-  plot(1:T, cull.eff, pch=16, cex=2, lwd=2, ylab="Removals per hour", xlab="Shooting session", axes=FALSE, ylim=c(0, max(cull.eff, na.rm=TRUE)))
+  plot(1:T, cull.rate, pch=16, cex=2, lwd=2, ylab="Removals per hour", xlab="Shooting session", axes=FALSE, ylim=c(0, max(cull.rate, na.rm=TRUE)))
   axis(1, lwd=2, at=t)
   axis(2, lwd=2, las=2)
   mtext("(B)", side=3, adj=0, cex=1.5)
@@ -405,7 +405,7 @@ with(out, {
   axis(1, lwd=2, at=t)
   axis(2, lwd=2, las=2)
   mtext("(A)", side=3, adj=0, cex=1.5)
-  plot(t, cull.eff, pch=16, cex=2, lwd=2, ylim=c(0, max(cull.eff, na.rm=TRUE)), ylab="Removals per hour", xlab="Shooting session", axes=FALSE)
+  plot(t, cull.rate, pch=16, cex=2, lwd=2, ylim=c(0, max(cull.rate, na.rm=TRUE)), ylab="Removals per hour", xlab="Shooting session", axes=FALSE)
   axis(1, lwd=2, at=t)
   axis(2, lwd=2, las=2)
   mtext("(B)", side=3, adj=0, cex=1.5)
@@ -425,7 +425,7 @@ with(simTypeIII, {
   axis(1, lwd=2, at=t)
   axis(2, lwd=2, las=2)
   mtext("(A)", side=3, adj=0, cex=1.5)
-  plot(t, cull.eff, pch=16, cex=2, lwd=2, ylim=c(0, max(cull.eff, na.rm=TRUE)), ylab="Removals per hour", xlab="Shooting session", axes=FALSE)
+  plot(t, cull.rate, pch=16, cex=2, lwd=2, ylim=c(0, max(cull.rate, na.rm=TRUE)), ylab="Removals per hour", xlab="Shooting session", axes=FALSE)
   axis(1, lwd=2, at=t)
   axis(2, lwd=2, las=2)
   mtext("(B)", side=3, adj=0, cex=1.5)
@@ -454,9 +454,7 @@ Contexts for the use of removal estimators include:
 
 ## Approaches using parametric forms for the functional response
 
-
-ToDo
-
+First up a model using a Type III numerical response
 
 ```{r, eval=TRUE, echo=TRUE, include=!FALSE}
 # Model for Type III estimation
@@ -464,47 +462,59 @@ cat("
 model {
   # Priors
   n0 ~ dnorm(n0.hat, pow(se.n0.hat,-2))T(0,)
-  beta0 ~ dgamma(5,1/10)  # mean 50
-  beta1 ~ dgamma(10,1/2)    # mean 20
+  beta0 ~ dgamma(beta0_shape, beta0_rate) 
+  beta1 ~ dgamma(beta1_shape, beta1_rate) 
   k ~ dgamma(16,4)         # mean of 4
   
   N0 <- n0*A
   N[1] <- round(N0)
   # Density
   x[1] <- n0 
-  # Kill rate (Type II)
+  # Kill rate (Type III)
   mu[1] <- beta0*x[1]^k/(beta1^2 + x[1]^k)
-  p.cull[1] <- 1 - exp(-mu[1]/N[1]*effort[1])
+  p.cull[1] <- 1 - exp(-mu[1]/N[1]*cull.eff[1])
   # Culls
-  C[1] ~ dbin(p.cull[1], N[1])
+  cull.no[1] ~ dbin(p.cull[1], N[1])
   # Over shooting data
   for (i in 2:max(T)) {
     # Remove culls at end of previous period
-    N[i] <- N[i-1] - C[i-1]   
+    N[i] <- N[i-1] - cull.no[i-1]   
+    # Calculate density
     x[i] <- N[i]/A
-    # Functional Response model for culls
+    # Functional Response model for cull rate
     mu[i] <- beta0*x[i]^k/(beta1^2 + x[i]^k)
-    p.cull[i] <- 1 - exp(-mu[i]/N[i]*effort[i])
+    # Check this next line -- it appeals to an exponential model to avoid a 
+    # culling proportion greater than one. 
+    # ... ToDo -- 
+    p.cull[i] <- 1 - exp(-mu[i]*cull.eff[i]/N[i])
     # Culls likelihood
-    C[i] ~ dbin(p.cull[i], N[i])
-   } 
+    cull.no[i] ~ dbin(p.cull[i], N[i])
+  } 
+   
+  # Predictive distribution
+  for(j in 1:length(x_pred)) {
+    mu_pred[j] <- beta0*x_pred[j]^k/(beta1^2 + x_pred[j]^k)
+  }
 }", file="estTypeIII.jags")
 ```
 
 
-Try recovering parameters from known simulation ... 
+### Recovering parameters from known simulation ... 
 
-```{r}
+```{r, echo=FALSE, include=FALSE}
 # Data
-mod.data.sim <- list(T=1:10, 
+mod.data.sim <- list(T=simTypeIII$t, 
                 n0.hat=20,
-                se.n0.hat=10,
-                effort=simTypeIII$effort,
-                C=simTypeIII$cull.no,
+                se.n0.hat=10, 
+                beta0_shape=5,  beta0_rate=1/10,# mean 50
+                beta1_shape=5, beta1_rate=1/4,   # mean 20
+                cull.eff=simTypeIII$cull.eff,
+                cull.no=simTypeIII$cull.no,
                 A=simTypeIII$A,
                 c.max=simTypeIII$c.max,
                 x.min=simTypeIII$x.min,
-                d=simTypeIII$d)
+                d=simTypeIII$d,
+                x_pred=seq(0, simTypeIII$n0, 0.5))
 
 # Initialize model
 estTypeIII.sim <- jags.model(
@@ -518,39 +528,63 @@ estTypeIII.sim <- jags.model(
 update(estTypeIII.sim, 1E3)
 
 # Parameters of interest
-params <- c("N0","N", "x", "mu", "p.cull")
+params <- c("N0","N", "x", "mu", "mu_pred", "p.cull")
 
 # Get samples
 estTypeIII.sim.coda <- coda.samples(estTypeIII.sim, params, 1E3) 
-
+# Combine into posterior
 post <- as.matrix(estTypeIII.sim.coda)
-
+# Have a look
 head(post)
 ```
 
 
+Check out posteriors. 
 
 
-```{r}
+```{r, echo=FALSE}
 par(mfrow=c(1,3))
 #hist(post[,'N[1]'])
-hist(post[,'x[1]'])
-hist(post[,'mu[1]'])
-
-hist(post[,"N0"])
+hist(post[,'x[1]'], main="Initial population density")
+hist(post[,"N0"], main="Initial population size")
 abline(v=simTypeIII$n0*simTypeIII$A, lwd=2, col='red')
+hist(post[,'mu[1]'])
 
 ```
 
-Try fitting to the data of Saunders&Bryant:1988.
+Check stuff ... 
 
-```{r}
+
+```{r,}
+# Calculate mean kill rates 
+mu.col.names <- paste0("mu[",simTypeIII$t,"]")
+mu.means <- apply(post[,mu.col.names],2,mean)
+mu.pred.col.names <- paste0("mu_pred[", 1:length(mod.data.sim$x_pred), "]")
+mu.pred.means <- apply(post[, mu.pred.col.names], 2, mean)
+n.col.names <- paste0("x[", simTypeIII$t, "]")
+n.means <-  apply(post[,n.col.names], 2, mean)
+
+with(simTypeIII,{
+  plot(x, cull.rate, pch=16, col='blue', xlim=c(0,n0), ylim=c(0,max(1.2*simTypeIII$beta0)))
+})
+lines(n.means, mu.means)
+lines(mod.data.sim$x_pred, mu.pred.means, lwd=2)
+
+```
+
+### Macquarie Marshes feral pig shoot of @Saunders&Bryant:1988.
+
+```{r, echo=FALSE, include=FALSE}
 mod.data.MM1985 <- list(T=1:4, 
                 n0.hat=50,   # from Giles (1980)
                 se.n0.hat=0.5*50, # Placeholder ... pretty flat
-                effort=MM1985$Effort,
-                C=MM1985$Kills,
-                A=125
+                beta0_shape=5,  beta0_rate=1/10,# mean 50
+                beta1_shape=5, beta1_rate=1/4,   # mean 20
+                cull.eff=MM1985$Effort,
+                cull.rate=MM1985$KillRate,
+                cull.no=MM1985$Kills,
+                A=125,
+                x_pred=seq(0,20,0.5)
                 )
 
 # Check out data
@@ -567,7 +601,7 @@ simShoot.MM1985 <- jags.model(
 update(simShoot.MM1985, 1E3)
 
 # Parameters of interest
-params <- c("N0","N", "x", "mu", "p.cull")
+params <- c("N0","N", "x", "mu", "mu_pred", "p.cull")
 
 # Get samples
 simShoot.MM1985.coda <- coda.samples(simShoot.MM1985, params, 1E3) 
@@ -578,26 +612,52 @@ head(post)
 ```
 
 ```{r}
-par(mfrow=c(2,2))
-hist(post[,'N[1]'], main= "Initial population size", probability=TRUE)
+par(mfrow=c(1,2))
+#hist(post[,'N[1]'], main="Initial population size", probability=TRUE)
 hist(post[,'x[1]'], main="Initial population density", probability=TRUE)
 hist(post[,'x[1]'], main="Initial population density", probability=TRUE, xlim=c(0,100))
 # add prior
 curve(dnorm(x, mean=50, sd=0.5*50), add=TRUE)
-hist(post[,'mu[1]'], main="Session 1 kill rate")
+#hist(post[,'mu[1]'], main="Session 1 kill rate")
+```
+
+```{r,}
+# Calculate mean kill rates 
+mu.col.names <- paste0("mu[", MM1985$Day, "]")
+mu.means <-  apply(post[, mu.col.names], 2, mean)
+mu.pred.col.names <- paste0("mu_pred[", 1:length(mod.data.MM1985$x_pred), "]")
+mu.pred.means <- apply(post[, mu.pred.col.names], 2, mean)
+n_hat.col.names <- paste0("x[", MM1985$Day, "]")
+n_hat.means <-  apply(post[,n_hat.col.names], 2, mean)
+
+with(mod.data.MM1985, {
+     plot(n_hat.means, cull.rate, pch=16, col='blue', ylim=c(0, 1.2*max(cull.rate)), axes=FALSE, xlim=c(0, max(n_hat.means)))
+  axis(1, lwd=3)
+  axis(2, lwd=2, las=2)
+})
+lines(mod.data.MM1985$x_pred, mu.pred.means, pch=16, ylim=c(0,300), lwd=2)
 
 ```
 
-Repeat for the data from @Hone:1990PredPrey
 
-```{r}
+
+
+
+
+### Mary River floodplain shoot from @Hone:1990PredPrey
+
+```{r, echo=FALSE, include=FALSE}
 mod.data.MR1986 <- list(T=1:nrow(MR1986), 
-                #n0.hat=50,   # from Giles (1980)
-                #se.n0.hat=0.25*50, # Placeholder ... pretty flat
-                n0.hat=6.1,   # from Hone (1990)
-                se.n0.hat=0.25*6.1, # ToDo Guess from Hone(1990)
-                effort=MR1986$Effort,
-                C=MR1986$Kills,
+                n0.hat=50,   # from Giles (1980)
+                se.n0.hat=0.5*50, # Placeholder ... pretty flat
+                #n0.hat=6.1,   # from Hone (1990)
+                #se.n0.hat=0.25*6.1, # ToDo Guess from Hone(1990)
+                beta0_shape=5,  beta0_rate=1/10, # mean 50
+                beta1_shape=5, beta1_rate=1/4,   # mean 20
+                cull.eff=MR1986$Effort,
+                cull.rate=MR1986$KillRate,
+                cull.no=MR1986$Kills,
+                x_pred=seq(0,10,0.1),
                 A=295
                 )
 
@@ -615,10 +675,10 @@ simShoot.MR1986 <- jags.model(
 update(simShoot.MR1986, 1E3)
 
 # Parameters of interest
-params <- c("N0","N", "x", "mu", "p.cull")
+params <- c("N0","N", "x", "mu", "mu_pred", "p.cull")
 
 # Get samples
-simShoot.MR1986.coda <- coda.samples(simShoot.MR1986, params, 1E3) 
+simShoot.MR1986.coda <- coda.samples(simShoot.MR1986, params, 10E3) 
 
 post <- as.matrix(simShoot.MR1986.coda)
 
@@ -637,6 +697,26 @@ curve(dnorm(x, mean=50, sd=0.25*50), add=TRUE)
 hist(post[,'mu[1]'], main="Session 1 kill rate")
 
 ```
+
+
+```{r,}
+# Calculate mean kill rates 
+mu.col.names <- paste0("mu[", MR1986$Day, "]")
+mu.means <-  apply(post[, mu.col.names], 2, mean)
+mu.pred.col.names <- paste0("mu_pred[", 1:length(mod.data.MR1986$x_pred), "]")
+mu.pred.means <- apply(post[, mu.pred.col.names], 2, mean)
+n_hat.col.names <- paste0("x[", MR1986$Day, "]")
+n_hat.means <-  apply(post[,n_hat.col.names], 2, mean)
+
+with(mod.data.MR1986, {
+     plot(n_hat.means, cull.rate, pch=16, col='blue', ylim=c(0, max(cull.rate)), axes=FALSE, xlim=c(0,max(n_hat.means)))
+  axis(1, lwd=3)
+  axis(2, lwd=2, las=2)
+})
+lines(mod.data.MR1986$x_pred, mu.pred.means, pch=16, ylim=c(0,300), lwd=2)
+
+```
+
 
 # References
 
