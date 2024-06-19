@@ -4,6 +4,7 @@
 ################################################################################
 
 full_shoot <- read.csv("./Data/full_shoot_data.csv", header=TRUE)
+full_shoot <- read.csv("C:/Users/cal14e/Git/RemovalEstimation/Data/full_shoot_data.csv")
 grouped_shoot <- read.csv("./Data/grouped_shoot_data.csv", header=TRUE)
 
 
