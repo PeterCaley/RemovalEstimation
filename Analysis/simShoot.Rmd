@@ -172,10 +172,6 @@ if(PLOT.IT) {
        #lines(x.vals, TypeIIIGeneral(x.vals, beta0=0.05, beta1=0.1, k=4), lty=2)
        legend(10, 30, paste0("beta0=", beta0, ", beta1=", beta1, ", k=", k), lty=c(1), lwd=2, title="Parameter settings", bty='n')
   })
-#  with(pars2, {
-#	     lines(x.vals, TypeIIIGeneral(x.vals, beta0, beta1, k), type='l', lwd=2, lty=2, xlim=c(0,max(x.vals)), xlab="Prey density", ylab="Kill rate")
-#       legend(10, 25, paste0("beta0=", beta0, ", beta1=", beta1, ", k=", k), lty=c(2), lwd=2, bty='n')
-#  })
   with(pars3, {
 	     lines(x.vals, TypeIIIGeneral(x.vals, beta0, beta1, k), type='l', lwd=2, lty=3, xlim=c(0,max(x.vals)), xlab="Prey density", ylab="Kill rate")
        legend(10, 20, paste0("beta0=", beta0, ", beta1=", beta1, ", k=", k), lty=c(3), lwd=2, bty='n')
