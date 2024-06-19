@@ -52,6 +52,7 @@ Choquenot <- function(x=20, a=40, b=1, d=0.5) {
 # Holling Type III Functional response used by Pech et al 1992  
 
 TypeIII <- function(x, beta0, beta1, k=2) {
+  # Source: Pech et al.   
   # Args:
   #   beta0 -- Parameter reflecting shooting saturation c.max
   #   beta1 -- Parameter determining the rate at which c.max is approached
@@ -76,6 +77,9 @@ TypeIIIGeneral <- function(x, beta0, beta1, k) {
   c <- beta0*x^k/(1 + beta0*beta1*x^k)
   return(c)
 }
+
+
+
 
 
 ################################################################################
