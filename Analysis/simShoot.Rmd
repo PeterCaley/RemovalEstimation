@@ -501,7 +501,7 @@ mod.data.sim <- list(T=simTypeIII$t,
                 se.n0.hat=10, 
                 beta0_shape=5,  beta0_rate=1/10,# mean 50
                 beta1_shape=5, beta1_rate=1/4,   # mean 20
-                k_shape=1/10, k_rate=1/10, 
+                k_shape=2, k_rate=1/2, 
                 cull.eff=simTypeIII$cull.eff,
                 cull.no=simTypeIII$cull.no,
                 A=simTypeIII$A,
@@ -574,7 +574,7 @@ mod.data.MM1985 <- list(T=1:4,
                 se.n0.hat=0.5*50, # Placeholder ... pretty flat
                 beta0_shape=5,  beta0_rate=1/10,# mean 50
                 beta1_shape=5, beta1_rate=1/4,   # mean 20
-                k_shape=1/10, k_rate=1/10,
+                k_shape=1, k_rate=1/10,
                 cull.eff=MM1985$Effort,
                 cull.rate=MM1985$KillRate,
                 cull.no=MM1985$Kills,
@@ -654,7 +654,7 @@ mod.data.MR1986 <- list(T=1:nrow(MR1986),
                 #se.n0.hat=0.25*6.1, # ToDo Guess from Hone(1990)
                 beta0_shape=5,  beta0_rate=1/10, # mean 50
                 beta1_shape=1, beta1_rate=1/10,   # mean 20
-                k_shape=1/10, k_rate=1/10,
+                k_shape=1, k_rate=1/10,
                 cull.eff=MR1986$Effort,
                 cull.rate=MR1986$KillRate,
                 cull.no=MR1986$Kills,
