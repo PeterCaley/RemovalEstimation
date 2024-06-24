@@ -183,73 +183,12 @@ if(PLOT.IT) {
 }
 ```
 
-# Examples of fitting different models to existing datasets
-
-@Hone:1990PredPrey ...
-
-## Feral/wild pigs
-
-Data from @Hone:1990PredPrey from aerial shooting operation on the Mary River floodplain (Northern Territory). 
-
-```{r, echo=FALSE}
-# Data from Hone 1990 from aerial shooting operation on the Mary River floodplain. 
-MR1986 <- data.frame(
-  Day=1:9,
-  EffortKm2=c(0.015, 0.022, 0.016, 0.006, 0.016, 0.018, 0.007, 0.019, 0.016),
-  KillsKm2=c(1.017, 0.471, 0.627, 0.210, 0.892, 0.566, 0.414, 0.519, 0.146),
-  KillRate=c(67.8, 21.4, 39.2, 35.0, 55.8, 31.4, 59.1, 27.3, 9.1)
-)
-# Calculate kills over entire site
-MR1986 <- within(MR1986, {
-    Kills <- round(KillsKm2*295)
-    Effort <- EffortKm2*295
-})
-MR1986 <- MR1986[,c("Day", "Effort", "Kills", "KillRate", "KillsKm2")]
-
-
-# Data from Saunders & Bryant (1988) for the Macquarie Marshes in 1985
-MM1985 <- data.frame(
-  Day=1:4,
-  Effort=c(255,405,420,330)/60,
-  Kills=c(208,417,316,74)
-)
-MM1985 <- within(MM1985, {
-  KillsKm2 <- round(Kills/120, 2)
-  KillRate <- round(Kills/Effort, 2)
-})
-# Make table
-kable(MR1986, caption="Aerial shooting data of feral pigs from Mary River Flooplain, Northern Territory. Reproduced from @Hone:1990PredPrey.")
-
-kable(MM1985, caption="Aerial shooting data of feral pigs from Macquarie Marshes, Western NSW. Reproduced from @Saunders&Bryant:1988.")
-```
-
-A notable feature of the data is the modest decline in the kill rate (see Figure below). This may be a result of the shooters  pseudo-systematic search pattern, whereby "shooting began on the perimeter of the area and continued towards the centre." Hence some of the kill rates for later shooting  sessions (e.g. Day 7) could arise from areas being shot for the first time. Other considerations for model specification include most of the open floodplain being covered with 1--2 metres of water. If the approx. one third of the study areas that was floodplain was subtracted from the total (295 km$^2$) this would change the estimates. 
-
-```{r, fig.cap="Data from aerial shooting operation reported by (A) @Hone:1990PredPrey and (B) @Saunders&Bryant:1988.", echo=FALSE}
-par(mfrow=c(1,2))
-with(MR1986,
-     plot(Day, KillRate, pch=16, ylim=c(0, max(KillRate)), axes=FALSE, 
-          cex=1.5,
-          ylab=expression(Kill ~ rate ~ hr^-1)))
-  axis(1, lwd=2, at=1:9)
-  axis(2, lwd=2, las=2)
-  mtext("(A)", 3, adj=0)
-
-with(MM1985,
-     plot(Day, KillRate, pch=16, ylim=c(0, max(KillRate)), axes=FALSE, 
-          cex=1.5,
-          ylab=expression(Kill ~ rate ~ hr^-1)))
-  axis(1, lwd=2, at=1:9)
-  axis(2, lwd=2, las=2)
-  mtext("(B)", 3, adj=0)
-  
-```
 ## Choice of functional response
 
 Do we need to species-dependent choices, or species x habitat-dependent choices, or can a 3-parameter Type III cover all? 
 
 
-## Fitting functional response models
+# Fitting functional response models
 
 Fitting functional response models requires that density is known (from a pre-control survey) or can be estimated jointly. Analyses to date [e.g. @Choquenot.etal:1999] have tended to assume the pre-control population is measured without uncertainty. A better approach would be to include uncertainty in the estimate of the pre-control population density. This naturally sends us down the Bayesian path.
 
@@ -261,22 +200,12 @@ Fitting functional response models requires that density is known (from a pre-co
 ```
 
 
-
-
-## Wild deer
-
-Re-fit data from @Bengsen.etal:2023. 
-
-
-
-
-
-# Simulation
+# Simulation of shooting data from known populations
 
 It will be useful for model testing and development to be able to simulate realistic removal data from a known population.
 
 
-```{r}
+```{r, echo=FALSE}
 simShoot <- function(n0=40, A=10, T=10, c.max=40, x.min=2, d=0.5, beta1=20, k=2, effort=NULL, effort.mu=6, searchFunc="Ivlev") {
 # Args:
 #   n0 -- initial population density
@@ -450,7 +379,7 @@ Contexts for the use of removal estimators include:
 
 ## Approaches using parametric forms for the functional response
 
-First up a model using a Type III numerical response
+First up a model using a Type III numerical response. 
 
 ```{r, eval=TRUE, echo=TRUE, include=!FALSE}
 # Model for Type III estimation
@@ -492,6 +421,8 @@ model {
 
 
 ### Recovering parameters from known simulation ... 
+
+First up we examine whether we can recover the latent (unobserved) states  of the populations underlying simulated shooting datasets. 
 
 ```{r, echo=FALSE, include=FALSE}
 # Data
@@ -548,7 +479,7 @@ hist(post[,'k'], main="", xlab="k", prob=TRUE)
 Check stuff ... 
 
 
-```{r,}
+```{r, fig.cap="ToDo"}
 # Calculate mean kill rates 
 mu.col.names <- paste0("mu[",simTypeIII$t,"]")
 mu.means <- apply(post[ , mu.col.names],2,mean)
@@ -565,7 +496,71 @@ lines(mod.data.sim$x_pred, mu.pred.means, lwd=2)
 
 ```
 
-### Macquarie Marshes feral pig shoot of @Saunders&Bryant:1988.
+
+#  Fitting different models to existing datasets
+
+## Feral/wild pigs
+
+@Hone:1990PredPrey and @Saunders&Bryant:1988 reported on aerial shooting operation operations of feral pigs on the Mary River floodplain (Northern Territory) and Macquarie Marshes (western NSW), respectively.  
+
+```{r, echo=FALSE}
+# Data from Hone 1990 from aerial shooting operation on the Mary River floodplain. 
+MR1986 <- data.frame(
+  Day=1:9,
+  EffortKm2=c(0.015, 0.022, 0.016, 0.006, 0.016, 0.018, 0.007, 0.019, 0.016),
+  KillsKm2=c(1.017, 0.471, 0.627, 0.210, 0.892, 0.566, 0.414, 0.519, 0.146),
+  KillRate=c(67.8, 21.4, 39.2, 35.0, 55.8, 31.4, 59.1, 27.3, 9.1)
+)
+# Calculate kills over entire site
+MR1986 <- within(MR1986, {
+    Kills <- round(KillsKm2*295)
+    Effort <- EffortKm2*295
+})
+MR1986 <- MR1986[ ,c("Day", "Effort", "Kills", "KillRate", "KillsKm2")]
+
+
+# Data from Saunders & Bryant (1988) for the Macquarie Marshes in 1985
+MM1985 <- data.frame(
+  Day=1:4,
+  Effort=c(255,405,420,330)/60,
+  Kills=c(208,417,316,74)
+)
+MM1985 <- within(MM1985, {
+  KillsKm2 <- round(Kills/120, 2)
+  KillRate <- round(Kills/Effort, 2)
+})
+# Make table
+kable(MR1986, caption="Aerial shooting data of feral pigs from Mary River Flooplain, Northern Territory. Reproduced from @Hone:1990PredPrey.")
+
+kable(MM1985, caption="Aerial shooting data of feral pigs from Macquarie Marshes, Western NSW. Reproduced from @Saunders&Bryant:1988.")
+```
+
+A notable feature of the Mary River operation data is the modest decline in the kill rate (see Figure below). This may be a result of the shooters  pseudo-systematic search pattern, whereby "shooting began on the perimeter of the area and continued towards the centre." Hence some of the kill rates for later shooting  sessions (e.g. Day 7) could arise from areas being shot for the first time. Other considerations for model specification include most of the open floodplain being covered with 1--2 metres of water. If the approx. one third of the study areas that was floodplain was subtracted from the total (295 km$^2$) this would change the estimates. 
+
+```{r, fig.cap="Data from aerial shooting operation reported by (A) @Hone:1990PredPrey and (B) @Saunders&Bryant:1988.", echo=FALSE}
+par(mfrow=c(1,2))
+with(MR1986,
+     plot(Day, KillRate, pch=16, ylim=c(0, max(KillRate)), axes=FALSE, 
+          cex=1.5,
+          ylab=expression(Kill ~ rate ~ hr^-1)))
+  axis(1, lwd=2, at=1:9)
+  axis(2, lwd=2, las=2)
+  mtext("(A)", 3, adj=0)
+
+with(MM1985,
+     plot(Day, KillRate, pch=16, ylim=c(0, max(KillRate)), axes=FALSE, 
+          cex=1.5,
+          ylab=expression(Kill ~ rate ~ hr^-1)))
+  axis(1, lwd=2, at=1:9)
+  axis(2, lwd=2, las=2)
+  mtext("(B)", 3, adj=0)
+  
+```
+
+
+### Fitting Macquarie Marshes feral pig shoot data of @Saunders&Bryant:1988.
+
+ToDo. The details in @Saunders&Bryant:1988 of the pre-shoot aerial survey (where ?? animals were counted) precludes estimating population density, so instead a prior of 50 pigs km$^-2$ was used consistent with some of the previous data from Jack Giles. 
 
 ```{r, echo=FALSE, include=FALSE}
 mod.data.MM1985 <- list(T=1:4, 
@@ -577,7 +572,7 @@ mod.data.MM1985 <- list(T=1:4,
                 cull.eff=MM1985$Effort,
                 cull.rate=MM1985$KillRate,
                 cull.no=MM1985$Kills,
-                A=125,
+                A=120,
                 x_pred=seq(0,20,0.5)
                 )
 
@@ -605,15 +600,19 @@ post <- as.matrix(simShoot.MM1985.coda)
 head(post)
 ```
 
-```{r}
+```{r, fig.cap="Posterior distributions (histograms) with priors (green lines) for (A) Initial population density, (B) Initial population density on wider scale to better illustrate prior, and (C) Parameter $k$."}
 par(mfrow=c(1,3))
 #hist(post[,'N[1]'], main="Initial population size", probability=TRUE)
 hist(post[,'x[1]'], main="", probability=TRUE, xlab="Initial population density")
+curve(dnorm(x, mean=50, sd=0.5*50), add=TRUE, col='green', lwd=2, )
+mtext("(A)", 3, adj=0)
 hist(post[,'x[1]'], main="", probability=TRUE, xlab="Initial population density", xlim=c(0,100))
 # add prior
-curve(dnorm(x, mean=50, sd=0.5*50), add=TRUE)
+curve(dnorm(x, mean=50, sd=0.5*50), add=TRUE, col='green', lwd=2, )
+mtext("(B)", 3, adj=0)
 hist(post[,'k'], main="", probability=TRUE, xlab="k")
-#hist(post[,'mu[1]'], main="Session 1 kill rate")
+curve(dgamma(x, mod.data.MM1985$k_shape, mod.data.MM1985$k_rate), add=TRUE, col='green', lwd=2)
+mtext("(C)", 3, adj=0)
 ```
 
 ```{r, fig.cap="Kill rates as a function of estimated density for feral pigs on the Maquaries Marshes, western NSW. Source: @Saunders&Bryant:1988"}
@@ -638,19 +637,16 @@ lines(mod.data.MM1985$x_pred, mu.pred.means, pch=16, ylim=c(0,300), lwd=2,
 
 
 
-
-
-
 ### Mary River floodplain shoot from @Hone:1990PredPrey
 
 This shoot was undertaken in the wet season, with much of the floodplain covered in deep water. Shooting was undertaken from a ToDo. 
 
 ```{r, echo=FALSE, include=FALSE}
 mod.data.MR1986 <- list(T=1:nrow(MR1986), 
-                n0.hat=50,   # from Giles (1980)
-                se.n0.hat=0.5*50, # Placeholder ... pretty flat
-                #n0.hat=6.1,   # from Hone (1990)
-                #se.n0.hat=0.25*6.1, # ToDo Guess from Hone(1990)
+                #n0.hat=50,   # from Giles (1980)
+                #se.n0.hat=0.5*50, # Placeholder ... pretty flat
+                n0.hat=6.1,   # from Hone (1990)
+                se.n0.hat=0.25*6.1, # ToDo Guess from Hone(1990)
                 beta0_shape=5,  beta0_rate=1/10, # mean 50
                 beta1_shape=1, beta1_rate=1/10,   # mean 20
                 k_shape=1, k_rate=1/10,
@@ -716,6 +712,130 @@ with(mod.data.MR1986, {
 })
 lines(mod.data.MR1986$x_pred, mu.pred.means, pch=16, ylim=c(0,300), lwd=2)
 ```
+### Combining multiple datasets ...
+
+```{r, eval=TRUE, echo=TRUE, include=!FALSE}
+# Model for Type III estimation with multiple data sets 
+cat("
+model {
+  # Priors
+  for (j in 1:J){
+    n0[j] ~ dnorm(n0.hat[j], pow(se.n0.hat[j],-2))T(0,)
+  }
+  beta0 ~ dgamma(beta0_shape, beta0_rate) 
+  beta1 ~ dgamma(beta1_shape, beta1_rate) 
+  k ~ dgamma(k_shape, k_rate)         
+  # Across sites
+  for (j in 1:J) {
+    N0[j] <- n0[j]*A[j]
+    N[1,j] <- round(N0[j])
+    # Density
+    x[1,j] <- n0[j] 
+    # Functional Response model for cull rate (Type III)
+    mu[1,j] <- beta0*x[1,j]^k/(beta1^2 + x[1,j]^k)
+    # Culls likelihood
+    cull.no[1,j] ~ dpois(mu[1,j]*cull.eff[1,j])
+    # Over shooting sessions
+    for (i in 2:T[j]) {
+      # Remove culls at end of previous period
+      N[i,j] <- N[i-1,j] - cull.no[i-1,j]   
+      # Calculate density
+      x[i,j] <- N[i,j]/A[j]
+      # Functional Response model for cull rate
+      mu[i,j] <- beta0*x[i,j]^k/(beta1^2 + x[i,j]^k)
+      # Culls likelihood
+      cull.no[i,j] ~ dpois(mu[i,j]*cull.eff[i,j])
+    } 
+  } 
+  # Predictive distribution for cull rate
+  for(m in 1:length(x_pred)) {
+    mu_pred[m] <- beta0*x_pred[m]^k/(beta1^2 + x_pred[m]^k)
+  }
+}", file="estTypeIIIcomb.jags")
+```
+
+
+```{r}
+# Add missing data to Macquarie Marshes shoot
+extra <- as.data.frame(cbind(5:9, matrix(NA, nrow=5, ncol=4)))
+names(extra) <- names(MM1985)
+MM1985PadNA <- rbind(MM1985, extra)
+
+data.comb <- list(
+                J=2, # Number of sites
+                T=c(max(MM1985$Day), max(MR1986$Day)), # number of shooting sessions
+                n0.hat=c(50, 6.1),   # from Giles (1980)
+                se.n0.hat=c(0.5*50, 0.25*6.1), # Placeholder ... pretty flat
+                beta0_shape=5,  beta0_rate=1/10, # mean 50
+                beta1_shape=1, beta1_rate=1/10,   # mean 20
+                k_shape=1, k_rate=1/10,
+                cull.eff=cbind(MM1985PadNA$Effort, MR1986$Effort),
+                cull.rate=cbind(MM1985PadNA$KillRate, MR1986$KillRate),
+                cull.no=cbind(MM1985PadNA$Kills, MR1986$Kills),
+                x_pred=seq(0,10,0.1),
+                A=c(120,295)
+                )
+```
+
+
+
+```{r, echo=FALSE}
+
+# Initialize model
+simShoot.comb <- jags.model(
+  file="estTypeIIIComb.jags",
+  dat=data.comb,
+  n.chains=3,
+  n.adapt=1000 
+)
+
+# Burn in
+update(simShoot.comb, 1E3)
+
+# Parameters of interest
+params <- c("n0", "N0","N", "x", "beta0", "mu", "mu_pred", "k")
+
+# Get samples
+simShoot.comb.coda <- coda.samples(simShoot.comb, params, 10E3) 
+
+post.comb <- as.matrix(simShoot.comb.coda)
+
+#head(post.comb)
+
+```
+
+
+```{r, fig.cap="Kill rates as a function of estimated density for feral pigs for combined data from Mary River floodplain and Macquarie Marshes shoots.", echo=FALSE}
+# Calculate mean kill rates 
+MM.mu.col.names <- paste0("mu[", paste(1:4,1,sep=","), "]")
+MM.mu.means <-  apply(post.comb[, MM.mu.col.names], 2, mean)
+
+MR.mu.col.names <- paste0("mu[", paste(1:9,2,sep=","), "]")
+MR.mu.means <-  apply(post.comb[, MR.mu.col.names], 2, mean)
+
+MM.n_hat.col.names <- paste0("x[", paste(1:4,1,sep=","), "]")
+MM.n_hat.means <-  apply(post.comb[ ,MM.n_hat.col.names], 2, mean)
+
+MR.n_hat.col.names <- paste0("x[", paste(1:9,2,sep=","), "]")
+MR.n_hat.means <-  apply(post.comb[ ,MR.n_hat.col.names], 2, mean)
+
+mu.pred.col.names <- paste0("mu_pred[", 1:length(data.comb$x_pred), "]")
+mu.pred.means <- apply(post.comb[, mu.pred.col.names], 2, mean)
+
+with(data.comb, {
+     plot(MM.n_hat.means[1:4], cull.rate[1:4 ,1], pch=16, col='blue', ylim=c(0, max(cull.rate,na.rm=TRUE)), axes=FALSE, xlim=c(0, max(MM.n_hat.means, na.rm=TRUE)),
+     xlab="Estimated density", ylab="Kill rate")
+     points(MR.n_hat.means, cull.rate[ ,2])
+  axis(1, lwd=3)
+  axis(2, lwd=2, las=2)
+})
+lines(data.comb$x_pred, mu.pred.means, pch=16, ylim=c(0,300), lwd=2)
+```
+
+## Wild deer
+
+Re-fit data from @Bengsen.etal:2023. 
+
 
 
 # References
