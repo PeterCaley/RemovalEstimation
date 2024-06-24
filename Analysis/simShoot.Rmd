@@ -307,17 +307,17 @@ simShoot <- function(n0=40, A=10, T=10, c.max=40, x.min=2, d=0.5, beta1=20, k=2,
        mu[1] <-  Choquenot(x[1], a=c.max, b=x.min, d=d)}
   if(searchFunc=="TypeIII"){
        beta0 <- c.max 
-       mu[1] <- TypeIII(x[1], beta0=beta0, beta1, k)
-  }
+       mu[1] <- TypeIII(x[1], beta0=beta0, beta1, k)}
   # Add variation
-  mu[1] <- rpois(1, mu[1])
+  # mu[1] <- rpois(1, mu[1])
   # ToDo -- check below here ... 
   # Encounter & probability per capita
-  cull.prop[1] <- 1 - exp(-mu[1]/(A*x[1])*effort[1])
+  # cull.prop[1] <- 1 - exp(-mu[1]/(A*x[1])*effort[1])
   # Number culled with standard binomial variation
-  cull.no[1] <- rbinom(1, N[1], cull.prop[1])
+  # cull.no[1] <- rbinom(1, N[1], cull.prop[1])
   # Number culled per unit effort
-  cull.rate[1] <- cull.no[1]/effort[1]
+  # cull.rate[1] <- cull.no[1]/effort[1]
+  cull.no[1] <- rpois(1, mu[1]*effort[1])
   # Run simulation
   for(i in 2:T) { # i=1
      # Number remaining
@@ -334,13 +334,14 @@ simShoot <- function(n0=40, A=10, T=10, c.max=40, x.min=2, d=0.5, beta1=20, k=2,
        mu[i] <- TypeIII(x[i], beta0=beta0, beta1, k)
      }
      # Add variation
-     mu[i] <- rpois(1, mu[i])
+     # mu[i] <- rpois(1, mu[i])
      # Encounter & probability per capita
-     cull.prop[i] <- 1 - exp(-mu[i]/(A*x[i])*effort[i])
+     # cull.prop[i] <- 1 - exp(-mu[i]/(A*x[i])*effort[i])
      # Number culled with standard binomial variation
-     cull.no[i] <- rbinom(1, N[i], cull.prop[i])
+     # cull.no[i] <- rbinom(1, N[i], cull.prop[i])
      # Number culled per unit effort
-     cull.rate[i] <- cull.no[i]/effort[i]
+     # cull.rate[i] <- cull.no[i]/effort[i]
+     cull.no[i] <- rpois(1, mu[i]*effort[i])  
   }
   return(list(
     mu=mu,
@@ -381,7 +382,7 @@ with(out, {
   axis(1, lwd=2, at=t)
   axis(2, lwd=2, las=2)
   mtext("(A)", side=3, adj=0, cex=1.5)
-  plot(1:T, cull.rate, pch=16, cex=2, lwd=2, ylab="Removals per hour", xlab="Shooting session", axes=FALSE, ylim=c(0, max(cull.rate, na.rm=TRUE)))
+  plot(1:T, mu, pch=16, cex=2, lwd=2, ylab="Underlying removal rate (/hour)", xlab="Shooting session", axes=FALSE, ylim=c(0, max(mu, na.rm=TRUE)))
   axis(1, lwd=2, at=t)
   axis(2, lwd=2, las=2)
   mtext("(B)", side=3, adj=0, cex=1.5)
@@ -398,11 +399,11 @@ out <- simShoot(n0=20, A=100, T=10, c.max=50, x.min=2, d=0.5, effort.mu=6, effor
 # Plot it
 with(out, {
   par(mfrow=c(1,2))
-  plot(t, cull.no, type="h", lwd=2, ylim=c(0, max(cull.no)), ylab="Removals", xlab="Session", axes=FALSE)
+  plot(t, cull.no, type="h", lwd=2, ylim=c(0, max(cull.no)), ylab="Removals", xlab="Shooting session", axes=FALSE)
   axis(1, lwd=2, at=t)
   axis(2, lwd=2, las=2)
   mtext("(A)", side=3, adj=0, cex=1.5)
-  plot(t, cull.rate, pch=16, cex=2, lwd=2, ylim=c(0, max(cull.rate, na.rm=TRUE)), ylab="Removals per hour", xlab="Shooting session", axes=FALSE)
+  plot(t, mu, pch=16, cex=2, lwd=2, ylim=c(0, max(mu, na.rm=TRUE)), ylab="Underlying mean removals (h-1)", xlab="Shooting session", axes=FALSE)
   axis(1, lwd=2, at=t)
   axis(2, lwd=2, las=2)
   mtext("(B)", side=3, adj=0, cex=1.5)
@@ -418,21 +419,19 @@ simTypeIII <- simShoot(n0=20, A=100, T=10, c.max=50, beta1=20, k=4, effort.mu=6,
 # Plot it
 with(simTypeIII, {
   par(mfrow=c(1,2))
-  plot(t, cull.no, type="h", lwd=2, ylim=c(0, max(cull.no)), ylab="Removals", xlab="Session", axes=FALSE)
+  plot(t, cull.no, type="h", lwd=2, ylim=c(0, max(cull.no)), ylab="Removals", xlab="Shooting session", axes=FALSE)
   axis(1, lwd=2, at=t)
   axis(2, lwd=2, las=2)
   mtext("(A)", side=3, adj=0, cex=1.5)
-  plot(t, cull.rate, pch=16, cex=2, lwd=2, ylim=c(0, max(cull.rate, na.rm=TRUE)), ylab="Removals per hour", xlab="Shooting session", axes=FALSE)
+  plot(t, mu, pch=16, cex=2, lwd=2, ylim=c(0, max(mu, na.rm=TRUE)), ylab="Underlying mean removals (h-1)", xlab="Shooting session", axes=FALSE)
   axis(1, lwd=2, at=t)
   axis(2, lwd=2, las=2)
   mtext("(B)", side=3, adj=0, cex=1.5)
-  legend(1, 10, paste0("c.max=", c.max, ", beta0=", beta0), lty=(1), lwd=2, title="Shooting parameter settings")
-  legend(1, 5, paste0("Inital density=", n0), lty=(1), lwd=2, title="Population settings")
+  legend(1, 20, paste0("c.max=", c.max, ", beta0=", beta0), lty=(1), lwd=2, title="Shooting parameter settings")
+  legend(1, 10, paste0("Inital density=", n0), lty=(1), lwd=2, title="Population settings")
   }
 )
 ```
-
-
 
 
 # Removal estimators 
@@ -472,7 +471,7 @@ model {
   mu[1] <- beta0*x[1]^k/(beta1^2 + x[1]^k)
   # Culls likelihood
   cull.no[1] ~ dpois(mu[1]*cull.eff[1])
-  # Over shooting data
+  # Over shooting sessions
   for (i in 2:max(T)) {
     # Remove culls at end of previous period
     N[i] <- N[i-1] - cull.no[i-1]   
@@ -552,14 +551,14 @@ Check stuff ...
 ```{r,}
 # Calculate mean kill rates 
 mu.col.names <- paste0("mu[",simTypeIII$t,"]")
-mu.means <- apply(post[,mu.col.names],2,mean)
+mu.means <- apply(post[ , mu.col.names],2,mean)
 mu.pred.col.names <- paste0("mu_pred[", 1:length(mod.data.sim$x_pred), "]")
 mu.pred.means <- apply(post[, mu.pred.col.names], 2, mean)
 n.col.names <- paste0("x[", simTypeIII$t, "]")
 n.means <-  apply(post[,n.col.names], 2, mean)
 
 with(simTypeIII,{
-  plot(x, cull.rate, pch=16, col='blue', xlim=c(0,n0), ylim=c(0,max(1.2*simTypeIII$beta0)),
+  plot(x, cull.no/cull.eff, pch=16, col='blue', xlim=c(0,n0), ylim=c(0,max(1.2*simTypeIII$beta0)),
        xlab="Estimated population density", ylab="Kill rate")
 })
 lines(mod.data.sim$x_pred, mu.pred.means, lwd=2)
