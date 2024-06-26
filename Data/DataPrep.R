@@ -3,8 +3,8 @@
 
 ################################################################################
 
+#full_shoot <- read.csv("C:/Users/cal14e/Git/RemovalEstimation/Data/full_shoot_data.csv")
 full_shoot <- read.csv("./Data/full_shoot_data.csv", header=TRUE)
-full_shoot <- read.csv("C:/Users/cal14e/Git/RemovalEstimation/Data/full_shoot_data.csv")
 grouped_shoot <- read.csv("./Data/grouped_shoot_data.csv", header=TRUE)
 
 
@@ -29,4 +29,28 @@ lapply(shoot_lst,
            }
        )
 
+
+test <- shoot_lst[["ACT"]]
+
+reshape(test, direction="long")
+reshape(test, direction="wide", idvar = "site", timevar = "day")
+
+
+
+
+################################################################################
+# Pasted 
+# Full data set, one row for each day's shooting
+datFull <- read.csv("./Data/full_shoot_data.csv", header=T) %>%
+  mutate(key=factor(key))
+
+# Grouped by operation
+datFullGp <- read.csv("grouped_shoot_data.csv", header=T) 
+
+# add se for dhat
+dhat_se <- data.frame(key = levels(factor(datFull$key))) %>%
+  mutate(se_dhat = c(1.68, 5.68, 2.17, 5.13, 0.22, 11.34, 0.91, 3.35, 2.88, 2.01, 15.23, 10.58))
+
+datFullGp <- datFullGp %>%
+  left_join(dhat_se)
 ################################################################################
