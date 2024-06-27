@@ -518,7 +518,6 @@ MR1986 <- within(MR1986, {
 })
 MR1986 <- MR1986[ ,c("Day", "Effort", "Kills", "KillRate", "KillsKm2")]
 
-
 # Data from Saunders & Bryant (1988) for the Macquarie Marshes in 1985
 MM1985 <- data.frame(
   Day=1:4,
@@ -560,7 +559,11 @@ with(MM1985,
 
 ### Fitting Macquarie Marshes feral pig shoot data of @Saunders&Bryant:1988.
 
+<<<<<<< HEAD
 The details in @Saunders&Bryant:1988 of the pre-shoot aerial survey (where ?? animals were counted) precludes estimating population density, so instead a prior of 50 pigs km$^-2$ was used consistent with some of the previous data from Jack Giles. Shooting was undertaken using a Bell 206 Jetranger helicopter. 
+=======
+ToDo. The details in @Saunders&Bryant:1988 of the pre-shoot aerial survey (where ?? animals were counted) precludes estimating population density, so instead a prior of 50 pigs km$^-2$ was used consistent with some of the previous data from Jack Giles. 
+>>>>>>> f60a3e6ab6da29bea1dabe2bac7f2c4f989fff3b
 
 ```{r, echo=FALSE, include=FALSE}
 mod.data.MM1985 <- list(T=1:4, 
@@ -603,10 +606,17 @@ head(post)
 ```{r, fig.cap="Posterior distributions (histograms) with priors (green lines) for (A) Initial population density, (B) Initial population density on wider scale to better illustrate prior, and (C) Parameter $k$."}
 par(mfrow=c(1,3))
 #hist(post[,'N[1]'], main="Initial population size", probability=TRUE)
+<<<<<<< HEAD
 hist(post[,'n[1]'], main="", probability=TRUE, xlab="Initial population density")
 curve(dnorm(x, mean=50, sd=0.5*50), add=TRUE, col='green', lwd=2, )
 mtext("(A)", 3, adj=0)
 hist(post[,'n[1]'], main="", probability=TRUE, xlab="Initial population density", xlim=c(0,100))
+=======
+hist(post[,'x[1]'], main="", probability=TRUE, xlab="Initial population density")
+curve(dnorm(x, mean=50, sd=0.5*50), add=TRUE, col='green', lwd=2, )
+mtext("(A)", 3, adj=0)
+hist(post[,'x[1]'], main="", probability=TRUE, xlab="Initial population density", xlim=c(0,100))
+>>>>>>> f60a3e6ab6da29bea1dabe2bac7f2c4f989fff3b
 # add prior
 curve(dnorm(x, mean=50, sd=0.5*50), add=TRUE, col='green', lwd=2, )
 mtext("(B)", 3, adj=0)
@@ -711,12 +721,32 @@ with(mod.data.MR1986, {
 lines(mod.data.MR1986$n_pred, mu.pred.means, pch=16, ylim=c(0,300), lwd=2)
 ```
 ### Combining multiple datasets ...
+<<<<<<< HEAD
+=======
+```{r}
+mod.data.comb <- list(
+                T=c(nrow(MM1985), nrow(MR1986)), 
+                n0.hat=c(50, 50),   # from Giles (1980)
+                se.n0.hat=c(0.5*50, 0.5*50), # Placeholder ... pretty flat
+                beta0_shape=5,  beta0_rate=1/10, # mean 50
+                beta1_shape=1, beta1_rate=1/10,   # mean 20
+                k_shape=1, k_rate=1/10,
+                cull.eff=list(MM1985$Effort, MR1986$Effort),
+                cull.rate=MR1986$KillRate,
+                cull.no=MR1986$Kills,
+                x_pred=seq(0,10,0.1),
+                A=295
+                )
+```
+
+>>>>>>> f60a3e6ab6da29bea1dabe2bac7f2c4f989fff3b
 
 ```{r, eval=TRUE, echo=TRUE, include=!FALSE}
 # Model for Type III estimation with multiple data sets 
 cat("
 model {
   # Priors
+<<<<<<< HEAD
   for (j in 1:J){
     n0[j] ~ dnorm(n0.hat[j], pow(se.n0.hat[j],-2))T(0,)
   }
@@ -836,6 +866,39 @@ plot(post.comb[,"k"], post.comb[,"n0[2]"])
 plot(post.comb[,"beta0"], post.comb[,"beta1"])
 plot(post.comb[,"beta0"], post.comb[,"n0[2]"])
 plot(post.comb[,"beta1"], post.comb[,"n0[2]"])
+=======
+  n0 ~ dnorm(n0.hat, pow(se.n0.hat,-2))T(0,)
+  beta0 ~ dgamma(beta0_shape, beta0_rate) 
+  beta1 ~ dgamma(beta1_shape, beta1_rate) 
+  k ~ dgamma(k_shape, k_rate)         
+  
+  N0 <- n0*A
+  N[1] <- round(N0)
+  # Density
+  x[1] <- n0 
+  # Kill rate (Type III)
+  # Functional Response model for cull rate
+  mu[1] <- beta0*x[1]^k/(beta1^2 + x[1]^k)
+  # Culls likelihood
+  cull.no[1] ~ dpois(mu[1]*cull.eff[1])
+  # Over shooting sessions
+  for (i in 2:max(T)) {
+    # Remove culls at end of previous period
+    N[i] <- N[i-1] - cull.no[i-1]   
+    # Calculate density
+    x[i] <- N[i]/A
+    # Functional Response model for cull rate
+    mu[i] <- beta0*x[i]^k/(beta1^2 + x[i]^k)
+    # Culls likelihood
+    cull.no[i] ~ dpois(mu[i]*cull.eff[i])
+  } 
+   
+  # Predictive distribution
+  for(j in 1:length(x_pred)) {
+    mu_pred[j] <- beta0*x_pred[j]^k/(beta1^2 + x_pred[j]^k)
+  }
+}", file="estTypeIII.jags")
+>>>>>>> f60a3e6ab6da29bea1dabe2bac7f2c4f989fff3b
 ```
 
 
