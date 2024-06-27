@@ -35,6 +35,8 @@ source("../Prep/functions.R")
 
 # Introduction
 
+Insertion
+
 Central to using culling/removal rate to estimate abundance is the underlying relationship between the rate of culling (predation) and population density/size --- the functional response. This is an example of an ``inverse problem'' in inference, where we seek to estimate the initial abundance/density on the basis of the rate of removal. 
 
 Some key points to note. 
