@@ -35,12 +35,18 @@ test <- shoot_lst[["ACT"]]
 
 ################################################################################
 # Pasted 
+library(tidyverse)
 # Full data set, one row for each day's shooting
-datFull <- read.csv("./Data/full_shoot_data.csv", header=T) %>%
-  mutate(key=factor(key))
+datFull <- read.csv("./Data/full_shoot_data.csv", header=T)
+datFull$key <- gsub(" ", "_", datFull$key)
+
+datFull <- datFull %>% mutate(key=factor(key))
 
 # Grouped by operation
-datFullGp <- read.csv("grouped_shoot_data.csv", header=T) 
+datFullGp <- read.csv("./Data/grouped_shoot_data.csv", header=T) 
+
+# Replace space in field "key" with underbar
+datFullGp$key <- gsub(" ", "_", datFullGp$key)
 
 # add se for dhat
 dhat_se <- data.frame(key = levels(factor(datFull$key))) %>%
@@ -48,4 +54,12 @@ dhat_se <- data.frame(key = levels(factor(datFull$key))) %>%
 
 datFullGp <- datFullGp %>%
   left_join(dhat_se)
+
 ################################################################################
+# Put together data matrices
+
+dhat <- datFullGp$dhat
+names(dhat) <- datFullGp$key
+
+se_dhat <- datFullGp$se_dhat
+names(se_dhat) <- datFullGp$key
