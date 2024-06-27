@@ -846,7 +846,7 @@ lines(data.comb$n_pred, mu.pred.means, pch=16, ylim=c(0,300), lwd=2)
 legend(6,40,c("Macquarie Marshes 1985", "Mary River Floodplain 1986"), pch=c(16,1), col=c("blue",1), title="Shooting operation")
 ```
 
-There is clearly something interesting going on here. 
+There is (was) clearly something interesting going on here. 
 
 ```{r}
 par(mfrow=c(3,3))

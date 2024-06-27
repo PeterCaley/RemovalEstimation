@@ -1,0 +1,36 @@
+
+model {
+  # Priors
+  for (j in 1:J){
+    n0[j] ~ dnorm(n0.hat[j], pow(se.n0.hat[j],-2))T(0,)
+  }
+  beta0 ~ dgamma(beta0_shape, beta0_rate) 
+  beta1 ~ dgamma(beta1_shape, beta1_rate) 
+  k ~ dgamma(k_shape, k_rate)         
+  # Across sites
+  for (j in 1:J) {
+    N0[j] <- n0[j]*A[j]
+    N[1,j] <- round(N0[j])
+    # Density
+    n[1,j] <- n0[j] 
+    # Functional Response model for cull rate (Type III)
+    mu[1,j] <- beta0*n[1,j]^k/(beta1^2 + n[1,j]^k)
+    # Culls likelihood
+    cull.no[1,j] ~ dpois(mu[1,j]*cull.eff[1,j])
+    # Over shooting sessions
+    for (i in 2:T[j]) {
+      # Remove culls at end of previous period
+      N[i,j] <- N[i-1,j] - x[i-1,j]   
+      # Calculate density
+      n[i,j] <- N[i,j]/A[j]
+      # Functional Response model for cull rate
+      mu[i,j] <- beta0*n[i,j]^k/(beta1^2 + n[i,j]^k)
+      # Culls likelihood
+      x[i,j] ~ dpois(mu[i,j]*cull.eff[i,j])
+    } 
+  } 
+  # Predictive distribution for cull rate
+  for(m in 1:length(n_pred)) {
+    mu_pred[m] <- beta0*n_pred[m]^k/(beta1^2 + n_pred[m]^k)
+  }
+}

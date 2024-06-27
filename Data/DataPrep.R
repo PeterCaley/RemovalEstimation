@@ -32,11 +32,6 @@ lapply(shoot_lst,
 
 test <- shoot_lst[["ACT"]]
 
-reshape(test, direction="long")
-reshape(test, direction="wide", idvar = "site", timevar = "day")
-
-
-
 
 ################################################################################
 # Pasted 

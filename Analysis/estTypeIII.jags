@@ -9,26 +9,26 @@ model {
   N0 <- n0*A
   N[1] <- round(N0)
   # Density
-  x[1] <- n0 
+  n[1] <- n0 
   # Kill rate (Type III)
   # Functional Response model for cull rate
-  mu[1] <- beta0*x[1]^k/(beta1^2 + x[1]^k)
+  mu[1] <- beta0*n[1]^k/(beta1^2 + n[1]^k)
   # Culls likelihood
-  cull.no[1] ~ dpois(mu[1]*cull.eff[1])
+  x[1] ~ dpois(mu[1]*cull.eff[1])
   # Over shooting sessions
   for (i in 2:max(T)) {
     # Remove culls at end of previous period
-    N[i] <- N[i-1] - cull.no[i-1]   
+    N[i] <- N[i-1] - x[i-1]   
     # Calculate density
-    x[i] <- N[i]/A
+    n[i] <- N[i]/A
     # Functional Response model for cull rate
-    mu[i] <- beta0*x[i]^k/(beta1^2 + x[i]^k)
+    mu[i] <- beta0*n[i]^k/(beta1^2 + n[i]^k)
     # Culls likelihood
-    cull.no[i] ~ dpois(mu[i]*cull.eff[i])
+    x[i] ~ dpois(mu[i]*cull.eff[i])
   } 
    
   # Predictive distribution
-  for(j in 1:length(x_pred)) {
-    mu_pred[j] <- beta0*x_pred[j]^k/(beta1^2 + x_pred[j]^k)
+  for(j in 1:length(n_pred)) {
+    mu_pred[j] <- beta0*n_pred[j]^k/(beta1^2 + n_pred[j]^k)
   }
 }
