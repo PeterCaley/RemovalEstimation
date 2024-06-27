@@ -518,7 +518,6 @@ MR1986 <- within(MR1986, {
 })
 MR1986 <- MR1986[ ,c("Day", "Effort", "Kills", "KillRate", "KillsKm2")]
 
-
 # Data from Saunders & Bryant (1988) for the Macquarie Marshes in 1985
 MM1985 <- data.frame(
   Day=1:4,
@@ -560,7 +559,11 @@ with(MM1985,
 
 ### Fitting Macquarie Marshes feral pig shoot data of @Saunders&Bryant:1988.
 
+<<<<<<< HEAD
 The details in @Saunders&Bryant:1988 of the pre-shoot aerial survey (where ?? animals were counted) precludes estimating population density, so instead a prior of 50 pigs km$^-2$ was used consistent with some of the previous data from Jack Giles. Shooting was undertaken using a Bell 206 Jetranger helicopter. 
+=======
+ToDo. The details in @Saunders&Bryant:1988 of the pre-shoot aerial survey (where ?? animals were counted) precludes estimating population density, so instead a prior of 50 pigs km$^-2$ was used consistent with some of the previous data from Jack Giles. 
+>>>>>>> f60a3e6ab6da29bea1dabe2bac7f2c4f989fff3b
 
 ```{r, echo=FALSE, include=FALSE}
 mod.data.MM1985 <- list(T=1:4, 
@@ -711,6 +714,22 @@ with(mod.data.MR1986, {
 lines(mod.data.MR1986$n_pred, mu.pred.means, pch=16, ylim=c(0,300), lwd=2)
 ```
 ### Combining multiple datasets ...
+```{r}
+mod.data.comb <- list(
+                T=c(nrow(MM1985), nrow(MR1986)), 
+                n0.hat=c(50, 50),   # from Giles (1980)
+                se.n0.hat=c(0.5*50, 0.5*50), # Placeholder ... pretty flat
+                beta0_shape=5,  beta0_rate=1/10, # mean 50
+                beta1_shape=1, beta1_rate=1/10,   # mean 20
+                k_shape=1, k_rate=1/10,
+                cull.eff=list(MM1985$Effort, MR1986$Effort),
+                cull.rate=MR1986$KillRate,
+                cull.no=MR1986$Kills,
+                x_pred=seq(0,10,0.1),
+                A=295
+                )
+```
+
 
 ```{r, eval=TRUE, echo=TRUE, include=!FALSE}
 # Model for Type III estimation with multiple data sets 
